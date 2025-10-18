@@ -16,6 +16,9 @@ export interface BidRecord {
     amount: number;
     timestamp: Date;
     txHash?: string;
+    thinking?: string;
+    strategy?: string;
+    reasoning?: string;
   }[];
   auctionStartTime: Date;
   auctionEndTime: Date;

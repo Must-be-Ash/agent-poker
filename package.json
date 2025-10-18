@@ -9,6 +9,8 @@
     "lint": "eslint",
     "agent:a": "tsx agents/agentA.ts",
     "agent:b": "tsx agents/agentB.ts",
+    "agent:ai:a": "tsx agents/intelligentAgentA.ts",
+    "agent:ai:b": "tsx agents/intelligentAgentB.ts",
     "fund": "tsx fund-wallet.ts",
     "fund:agents": "tsx fund-agents.ts"
   },

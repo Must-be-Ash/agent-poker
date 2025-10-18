@@ -36,14 +36,51 @@ export async function POST(
       );
     }
 
-    // Get payment header
+    // Get payment header and agent info
     const paymentHeader = request.headers.get('X-PAYMENT');
     const agentId = request.headers.get('X-Agent-ID') || 'unknown';
+    const proposedBidHeader = request.headers.get('X-Proposed-Bid');
+    const strategyReasoning = request.headers.get('X-Strategy-Reasoning');
 
-    // If no payment, return 402 Payment Required
+    // Parse request body for thinking/strategy
+    let requestBody: any = {};
+    try {
+      requestBody = await request.json();
+    } catch {
+      // No body or invalid JSON
+    }
+
+    // If no payment, evaluate proposed bid and return 402 with negotiation
     if (!paymentHeader) {
       const currentBid = bidRecord?.currentBid || null;
-      const requiredPrice = calculateCurrentBidPrice(currentBid);
+      const proposedBid = proposedBidHeader ? parseFloat(proposedBidHeader) : null;
+
+      // Calculate minimum required bid
+      const minimumRequired = calculateCurrentBidPrice(currentBid);
+      const minimumRequiredNum = parseBidAmount(minimumRequired);
+
+      // Log agent's proposal
+      if (proposedBid) {
+        console.log(`💭 [${agentId}] Proposed: $${proposedBid.toFixed(2)}`);
+        if (strategyReasoning) {
+          console.log(`   Reasoning: ${strategyReasoning}`);
+        }
+      }
+
+      // Determine if proposal is acceptable
+      const isProposalAcceptable = proposedBid && proposedBid >= minimumRequiredNum;
+
+      // Build negotiation response
+      const negotiationMessage = proposedBid
+        ? isProposalAcceptable
+          ? `Your proposal of $${proposedBid.toFixed(2)} is acceptable. Proceed with payment.`
+          : `Your proposal of $${proposedBid.toFixed(2)} is too low. Current bid: $${currentBid?.toFixed(2) || '0.00'}. Minimum required: $${minimumRequiredNum.toFixed(2)}`
+        : `No proposal detected. Current bid: $${currentBid?.toFixed(2) || '0.00'}. Minimum required: $${minimumRequiredNum.toFixed(2)}`;
+
+      // If proposal is acceptable, use it as max; otherwise allow flexibility up to $50
+      const maxAmount = (isProposalAcceptable && proposedBid)
+        ? proposedBid
+        : Math.min(50, minimumRequiredNum + 10); // Cap at $50 or min + $10
 
       const paymentRequirements = {
         x402Version: 1,
@@ -51,11 +88,12 @@ export async function POST(
           {
             scheme: 'exact',
             network: 'base-sepolia',
-            maxAmountRequired: (parseBidAmount(requiredPrice) * 1_000_000).toString(), // USDC has 6 decimals
+            minAmountRequired: (minimumRequiredNum * 1_000_000).toString(),
+            maxAmountRequired: (maxAmount * 1_000_000).toString(),
             asset: '0x036CbD53842c5426634e7929541eC2318f3dCF7e', // USDC Base Sepolia
             payTo: process.env.SERVER_WALLET_ADDRESS,
             resource: `${request.nextUrl.origin}/api/bid/${basename}`,
-            description: `Bid ${requiredPrice} USDC on ${basename}`,
+            description: `Bid on ${basename}`,
             mimeType: 'application/json',
             maxTimeoutSeconds: 60,
             extra: {
@@ -64,6 +102,17 @@ export async function POST(
             }
           }
         ],
+        negotiation: {
+          yourProposal: proposedBid,
+          currentBid: currentBid,
+          minimumToWin: minimumRequiredNum,
+          message: negotiationMessage,
+          suggestion: minimumRequiredNum + 1.0,
+          timeRemaining: bidRecord?.auctionEndTime
+            ? Math.max(0, Math.floor((bidRecord.auctionEndTime.getTime() - Date.now()) / 1000))
+            : null,
+          bidHistory: bidRecord?.bidHistory.slice(-5) || [],
+        },
         error: 'Payment required to place bid'
       };
 
@@ -166,13 +215,16 @@ export async function POST(
       winnerNotified: false,
     });
 
-    // Add to bid history with transaction hash
+    // Add to bid history with transaction hash and strategy data
     await addBidToHistory(basename, {
       agentId,
       walletAddress: payerAddress || 'unknown',
       amount: bidAmount,
       timestamp: new Date(),
       txHash: transactionHash,
+      thinking: requestBody.thinking,
+      strategy: requestBody.strategy,
+      reasoning: strategyReasoning || undefined,
     });
 
     // Refund previous bidder if exists

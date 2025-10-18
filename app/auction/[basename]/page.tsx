@@ -17,6 +17,9 @@ interface BidRecord {
     amount: number;
     timestamp: string;
     transactionHash?: string;
+    thinking?: string;
+    strategy?: string;
+    reasoning?: string;
   }>;
   timeRemaining: number | null;
 }
@@ -58,6 +61,9 @@ export default function AuctionPage({ params }: { params: Promise<{ basename: st
             amount: bid.amount,
             timestamp: bid.timestamp,
             transactionHash: bid.txHash || bid.transactionHash,
+            thinking: bid.thinking,
+            strategy: bid.strategy,
+            reasoning: bid.reasoning,
           }));
           setMessages(msgs);
         }
@@ -82,6 +88,9 @@ export default function AuctionPage({ params }: { params: Promise<{ basename: st
                   amount: bid.amount,
                   timestamp: bid.timestamp,
                   transactionHash: bid.txHash || bid.transactionHash,
+                  thinking: bid.thinking,
+                  strategy: bid.strategy,
+                  reasoning: bid.reasoning,
                 }));
                 return [...prevMessages, ...newMessages];
               }
@@ -244,14 +253,39 @@ export default function AuctionPage({ params }: { params: Promise<{ basename: st
                       </div>
 
                       {/* Message bubble */}
-                      <div className={`flex flex-col ${isAgentA ? 'items-start' : 'items-end'}`}>
+                      <div className={`flex flex-col ${isAgentA ? 'items-start' : 'items-end'} max-w-lg`}>
                         <div className="text-[#888888] text-xs mb-1 px-2">
                           {msg.agentId}
                         </div>
+
+                        {/* Thinking bubble (if present) */}
+                        {(msg as any).thinking && (
+                          <div
+                            className={`rounded-2xl px-4 py-3 mb-2 border border-[#444444] ${isAgentA
+                                ? 'bg-[#2a2a2a] rounded-tl-sm'
+                                : 'bg-[#2a2a2a] rounded-tr-sm'
+                              }`}
+                          >
+                            <div className="text-[#888888] text-xs mb-1 flex items-center gap-1">
+                              <span>💭</span>
+                              <span>Thinking...</span>
+                            </div>
+                            <div className="text-[#cccccc] text-sm italic">
+                              "{(msg as any).thinking}"
+                            </div>
+                            {(msg as any).strategy && (
+                              <div className="text-[#888888] text-xs mt-2">
+                                Strategy: <span className="text-[#aaaaaa]">{(msg as any).strategy}</span>
+                              </div>
+                            )}
+                          </div>
+                        )}
+
+                        {/* Bid bubble */}
                         <div
                           className={`rounded-2xl px-4 py-3 ${isAgentA
-                            ? 'bg-[#333333] rounded-tl-sm'
-                            : 'bg-[#444444] rounded-tr-sm'
+                              ? 'bg-[#333333] rounded-tl-sm'
+                              : 'bg-[#444444] rounded-tr-sm'
                             }`}
                         >
                           <div className="flex items-baseline gap-2">
@@ -261,6 +295,12 @@ export default function AuctionPage({ params }: { params: Promise<{ basename: st
                             </span>
                             <span className="text-[#888888] text-xs">USDC</span>
                           </div>
+
+                          {(msg as any).reasoning && (
+                            <div className="text-[#aaaaaa] text-xs mt-2 italic">
+                              "{(msg as any).reasoning}"
+                            </div>
+                          )}
 
                           {msg.transactionHash && (
                             <a
