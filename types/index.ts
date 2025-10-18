@@ -19,6 +19,7 @@ export interface BidRecord {
     thinking?: string;
     strategy?: string;
     reasoning?: string;
+    reflection?: string;
   }[];
   auctionStartTime: Date;
   auctionEndTime: Date;

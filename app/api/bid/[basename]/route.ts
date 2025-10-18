@@ -4,6 +4,7 @@ import { sendRefund, getServerWalletClient } from '@/lib/wallet';
 import { calculateCurrentBidPrice, parseBidAmount, AUCTION_DURATION_MS } from '@/lib/x402-config';
 import { verify, settle } from 'x402/facilitator';
 import type { PaymentPayload } from 'x402/types';
+import { broadcastEvent } from '@/lib/events';
 
 // Simple in-memory lock to prevent concurrent settlements
 const settlementLocks = new Map<string, Promise<any>>();
@@ -59,12 +60,22 @@ export async function POST(
       const minimumRequired = calculateCurrentBidPrice(currentBid);
       const minimumRequiredNum = parseBidAmount(minimumRequired);
 
-      // Log agent's proposal
+      // Log agent's proposal and broadcast thinking event
       if (proposedBid) {
         console.log(`💭 [${agentId}] Proposed: $${proposedBid.toFixed(2)}`);
         if (strategyReasoning) {
           console.log(`   Reasoning: ${strategyReasoning}`);
         }
+
+        // Broadcast thinking event
+        broadcastEvent(basename, {
+          type: 'thinking',
+          agentId,
+          thinking: requestBody.thinking || strategyReasoning,
+          strategy: requestBody.strategy,
+          proposedAmount: proposedBid,
+          timestamp: new Date().toISOString(),
+        });
       }
 
       // Determine if proposal is acceptable
@@ -77,10 +88,25 @@ export async function POST(
           : `Your proposal of $${proposedBid.toFixed(2)} is too low. Current bid: $${currentBid?.toFixed(2) || '0.00'}. Minimum required: $${minimumRequiredNum.toFixed(2)}`
         : `No proposal detected. Current bid: $${currentBid?.toFixed(2) || '0.00'}. Minimum required: $${minimumRequiredNum.toFixed(2)}`;
 
-      // If proposal is acceptable, use it as max; otherwise allow flexibility up to $50
-      const maxAmount = (isProposalAcceptable && proposedBid)
-        ? proposedBid
-        : Math.min(50, minimumRequiredNum + 10); // Cap at $50 or min + $10
+      // If proposal exists and is too low, reject it immediately
+      // This prevents x402-axios from paying more than the agent intended
+      if (proposedBid && !isProposalAcceptable) {
+        return NextResponse.json({
+          error: 'Proposal rejected',
+          negotiation: {
+            yourProposal: proposedBid,
+            currentBid: currentBid,
+            minimumToWin: minimumRequiredNum,
+            message: `Your proposal of $${proposedBid.toFixed(2)} is too low. Minimum required: $${minimumRequiredNum.toFixed(2)}. Please submit a new proposal.`,
+            suggestion: minimumRequiredNum + 0.50,
+          }
+        }, { status: 400 }); // 400 Bad Request instead of 402
+      }
+
+      // If proposal is acceptable, use it as both min and max (exact amount)
+      // If no proposal, allow range from minimum to min + $5
+      const minAmount = proposedBid || minimumRequiredNum;
+      const maxAmount = proposedBid || Math.min(50, minimumRequiredNum + 5);
 
       const paymentRequirements = {
         x402Version: 1,
@@ -88,7 +114,7 @@ export async function POST(
           {
             scheme: 'exact',
             network: 'base-sepolia',
-            minAmountRequired: (minimumRequiredNum * 1_000_000).toString(),
+            minAmountRequired: (minAmount * 1_000_000).toString(),
             maxAmountRequired: (maxAmount * 1_000_000).toString(),
             asset: '0x036CbD53842c5426634e7929541eC2318f3dCF7e', // USDC Base Sepolia
             payTo: process.env.SERVER_WALLET_ADDRESS,
@@ -192,6 +218,15 @@ export async function POST(
 
     console.log(`💰 Bid accepted from ${agentId}: ${bidAmount} USDC`);
 
+    // Broadcast bid placed event
+    broadcastEvent(basename, {
+      type: 'bid_placed',
+      agentId,
+      amount: bidAmount,
+      transactionHash,
+      timestamp: new Date().toISOString(),
+    });
+
     // Store previous winner for refund
     const previousWinner = bidRecord?.currentWinner;
 
@@ -234,16 +269,34 @@ export async function POST(
       setTimeout(async () => {
         try {
           console.log(`🔄 Refunding ${bidRecord.currentBid} USDC to ${previousWinner.agentId}...`);
-          await sendRefund(previousWinner.walletAddress, bidRecord.currentBid);
+          const refundTxHash = await sendRefund(previousWinner.walletAddress, bidRecord.currentBid);
           console.log(`✅ Refund completed successfully`);
+
+          // Broadcast refund event
+          broadcastEvent(basename, {
+            type: 'refund',
+            agentId: previousWinner.agentId,
+            amount: bidRecord.currentBid,
+            transactionHash: refundTxHash,
+            timestamp: new Date().toISOString(),
+          });
         } catch (error: any) {
           console.error('❌ Refund failed:', error.message);
           // Retry once after a delay if it fails
           setTimeout(async () => {
             try {
               console.log(`🔄 Retrying refund to ${previousWinner.agentId}...`);
-              await sendRefund(previousWinner.walletAddress, bidRecord.currentBid);
+              const refundTxHash = await sendRefund(previousWinner.walletAddress, bidRecord.currentBid);
               console.log(`✅ Refund retry successful`);
+
+              // Broadcast refund event
+              broadcastEvent(basename, {
+                type: 'refund',
+                agentId: previousWinner.agentId,
+                amount: bidRecord.currentBid,
+                transactionHash: refundTxHash,
+                timestamp: new Date().toISOString(),
+              });
             } catch (retryError: any) {
               console.error('❌ Refund retry failed:', retryError.message);
             }

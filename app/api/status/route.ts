@@ -1,61 +1,51 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getBidRecord } from '@/lib/db';
+import { AUCTION_DURATION_MS } from '@/lib/x402-config';
 
 export async function GET(request: NextRequest) {
+  const searchParams = request.nextUrl.searchParams;
+  const basename = searchParams.get('basename');
+
+  if (!basename) {
+    return NextResponse.json({ error: 'Basename is required' }, { status: 400 });
+  }
+
   try {
-    // Get basename from query params
-    const basename = request.nextUrl.searchParams.get('basename');
-
-    if (!basename) {
-      return NextResponse.json(
-        { error: 'basename query parameter is required' },
-        { status: 400 }
-      );
-    }
-
-    // Fetch bid record from MongoDB
     const bidRecord = await getBidRecord(basename);
 
     if (!bidRecord) {
-      return NextResponse.json(
-        {
-          basename,
-          status: 'not_started',
-          currentBid: null,
-          currentWinner: null,
-          bidHistory: [],
-          auctionStartTime: null,
-          auctionEndTime: null,
-        },
-        { status: 200 }
-      );
-    }
-
-    // Check if auction should be marked as ended
-    if (bidRecord.auctionEndTime && new Date() > bidRecord.auctionEndTime && bidRecord.status === 'active') {
-      bidRecord.status = 'ended';
+      return NextResponse.json({
+        basename,
+        currentBid: null,
+        timeRemaining: null,
+        bidHistory: [],
+      });
     }
 
     // Calculate time remaining
-    const timeRemaining = bidRecord.auctionEndTime
-      ? Math.max(0, Math.floor((bidRecord.auctionEndTime.getTime() - Date.now()) / 1000))
-      : null;
+    const auctionEndTime = new Date(bidRecord.auctionStartTime.getTime() + AUCTION_DURATION_MS);
+    const timeRemaining = Math.max(0, Math.floor((auctionEndTime.getTime() - Date.now()) / 1000));
 
     return NextResponse.json({
-      basename: bidRecord.basename,
-      status: bidRecord.status,
+      basename,
       currentBid: bidRecord.currentBid,
       currentWinner: bidRecord.currentWinner,
-      bidHistory: bidRecord.bidHistory,
-      auctionStartTime: bidRecord.auctionStartTime,
-      auctionEndTime: bidRecord.auctionEndTime,
       timeRemaining,
+      bidHistory: bidRecord.bidHistory.map((bid) => ({
+        agentId: bid.agentId,
+        amount: bid.amount,
+        timestamp: bid.timestamp,
+        txHash: bid.txHash,
+        thinking: bid.thinking,
+        strategy: bid.strategy,
+        reasoning: bid.reasoning,
+        reflection: bid.reflection,
+      })),
     });
-
-  } catch (error) {
-    console.error('❌ Error fetching status:', error);
+  } catch (error: any) {
+    console.error('Error fetching auction status:', error);
     return NextResponse.json(
-      { error: 'Internal server error' },
+      { error: 'Failed to fetch auction status' },
       { status: 500 }
     );
   }

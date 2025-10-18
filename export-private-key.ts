@@ -32,3 +32,4 @@ async function exportPrivateKey() {
 }
 
 exportPrivateKey().catch(console.error);
+

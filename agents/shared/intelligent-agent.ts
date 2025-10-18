@@ -150,6 +150,7 @@ export class IntelligentBiddingAgent {
         try {
           console.log(`\n💭 [${this.agentName}] Thinking: ${input.reasoning}`);
           console.log(`💰 [${this.agentName}] Proposing bid: $${input.proposedAmount.toFixed(2)}`);
+          console.log(`🌐 [${this.agentName}] Sending to: ${this.serverUrl}/api/bid/${input.basename}`);
 
           // First request with proposed bid (no payment yet)
           const response = await this.axiosWithPayment.post(
@@ -166,6 +167,8 @@ export class IntelligentBiddingAgent {
             }
           );
 
+          console.log(`📡 [${this.agentName}] Server response status: ${response.status}`);
+
           if (response.status === 200 && response.data.success) {
             return JSON.stringify({
               success: true,
@@ -177,6 +180,21 @@ export class IntelligentBiddingAgent {
 
           return JSON.stringify({ success: false, message: 'Bid failed' });
         } catch (error: any) {
+          // Handle 400 Bad Request (proposal rejected as too low)
+          if (error.response?.status === 400) {
+            const rejection = error.response.data;
+            return JSON.stringify({
+              success: false,
+              proposalRejected: true,
+              yourProposal: rejection.negotiation?.yourProposal || null,
+              minimumRequired: rejection.negotiation?.minimumToWin || null,
+              currentBid: rejection.negotiation?.currentBid || null,
+              message: rejection.negotiation?.message || 'Proposal too low',
+              suggestion: rejection.negotiation?.suggestion || null,
+            });
+          }
+
+          // Handle 402 Payment Required (needs payment)
           if (error.response?.status === 402) {
             const paymentReq = error.response.data;
             return JSON.stringify({
@@ -188,12 +206,13 @@ export class IntelligentBiddingAgent {
               suggestion: paymentReq.negotiation?.suggestion || null,
             });
           }
+
           return JSON.stringify({ success: false, message: error.message });
         }
       },
       {
         name: 'place_bid',
-        description: 'Places a bid on the basename with your proposed amount and reasoning. Returns success or negotiation requirements.',
+        description: 'Places a bid on the basename with your proposed amount and reasoning. Returns one of: 1) success=true if bid accepted, 2) proposalRejected=true if your amount is too low (you must propose higher), 3) needsNegotiation=true if payment is required. Always check the response and adjust your strategy accordingly.',
         parameters: {
           type: 'object',
           properties: {
@@ -260,6 +279,7 @@ Instructions:
    - What's the bidding pattern?
 4. Decide on a strategic bid amount and reasoning
 5. Use place-bid to submit your bid
+6. Provide a final strategic analysis of your actions and the outcome
 
 Be creative with your strategy! You can:
 - Start conservative to test the waters
@@ -278,6 +298,23 @@ Think step by step and make your move!`;
 
       console.log(`\n✅ [${this.agentName}] AI decision complete`);
       console.log(response.response);
+
+      // Extract and send the reflection from the response
+      const reflection = response.response;
+      if (reflection && reflection.length > 50) {
+        try {
+          await axios.post(
+            `${this.serverUrl}/api/bid/${basename}/reflection`,
+            {
+              agentId: this.agentName,
+              reflection: reflection,
+            }
+          );
+          console.log(`📝 [${this.agentName}] Reflection submitted to server`);
+        } catch (error: any) {
+          console.error(`❌ [${this.agentName}] Failed to submit reflection:`, error.message);
+        }
+      }
 
       // Start monitoring for refunds after successful bid
       this.startRefundMonitoring(basename);
