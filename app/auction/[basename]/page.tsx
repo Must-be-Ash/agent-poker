@@ -1,11 +1,11 @@
 'use client';
 
-import { use, useEffect, useState } from 'react';
+import { use, useEffect, useState, useRef } from 'react';
 
 interface StreamingMessage {
   id: string;
-  type: 'thinking' | 'bid' | 'reflection' | 'refund';
-  agentId: string;
+  type: 'thinking' | 'bid' | 'reflection' | 'refund' | 'withdrawal' | 'auction_ended';
+  agentId?: string;
   timestamp: string;
   thinking?: string;
   strategy?: string;
@@ -14,6 +14,10 @@ interface StreamingMessage {
   transactionHash?: string;
   reflection?: string;
   refundAmount?: number;
+  reasoning?: string;
+  winner?: any;
+  finalBid?: number;
+  endReason?: string;
   isLoading?: boolean;
 }
 
@@ -26,110 +30,177 @@ export default function AuctionPageStreaming({ params }: { params: Promise<{ bas
     'AgentA': 37.27,
     'AgentB': 15.25,
   });
+  const [agentStatus, setAgentStatus] = useState<Record<string, string>>({});
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  // Auto-scroll to bottom when new messages arrive
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages]);
 
   useEffect(() => {
-    // Connect to SSE stream
-    const eventSource = new EventSource(`/api/stream/${encodeURIComponent(basename)}`);
+    let eventSource: EventSource | null = null;
+    let reconnectTimeout: NodeJS.Timeout;
 
-    eventSource.addEventListener('message', (e) => {
-      const data = JSON.parse(e.data);
+    const connect = () => {
+      // Connect to SSE stream
+      eventSource = new EventSource(`/api/stream/${encodeURIComponent(basename)}`);
 
-      switch (data.type) {
-        case 'thinking':
-          // Add thinking bubble
-          setMessages(prev => [...prev, {
-            id: `${data.agentId}-thinking-${Date.now()}`,
-            type: 'thinking',
-            agentId: data.agentId,
-            timestamp: data.timestamp,
-            thinking: data.thinking,
-            strategy: data.strategy,
-            proposedAmount: data.proposedAmount,
-          }]);
-          break;
+      eventSource.addEventListener('message', (e) => {
+        const data = JSON.parse(e.data);
 
-        case 'bid_placed':
-          // Add bid card with loading state for reflection
-          setMessages(prev => [...prev, {
-            id: `${data.agentId}-bid-${Date.now()}`,
-            type: 'bid',
-            agentId: data.agentId,
-            timestamp: data.timestamp,
-            amount: data.amount,
-            transactionHash: data.transactionHash,
-            isLoading: true, // Waiting for reflection
-          }]);
-          setCurrentBid(data.amount);
-          break;
+        switch (data.type) {
+          case 'agent_status':
+            // Update agent status (for shimmer display)
+            setAgentStatus(prev => ({
+              ...prev,
+              [data.agentId]: data.status,
+            }));
+            break;
 
-        case 'reflection':
-          // Update the corresponding bid with reflection
-          setMessages(prev => prev.map(msg => {
-            if (msg.type === 'bid' && msg.agentId === data.agentId && msg.isLoading) {
-              return {
-                ...msg,
-                reflection: data.reflection,
-                isLoading: false,
-              };
-            }
-            return msg;
-          }));
-          break;
+          case 'thinking':
+            // Add thinking bubble and clear agent status
+            setMessages(prev => [...prev, {
+              id: `${data.agentId}-thinking-${Date.now()}`,
+              type: 'thinking',
+              agentId: data.agentId,
+              timestamp: data.timestamp,
+              thinking: data.thinking,
+              strategy: data.strategy,
+              proposedAmount: data.proposedAmount,
+            }]);
+            // Clear thinking status since we now have the actual thinking bubble
+            setAgentStatus(prev => ({
+              ...prev,
+              [data.agentId]: 'idle',
+            }));
+            break;
 
-        case 'refund':
-          // Add refund notification
-          setMessages(prev => [...prev, {
-            id: `${data.agentId}-refund-${Date.now()}`,
-            type: 'refund',
-            agentId: data.agentId,
-            timestamp: data.timestamp,
-            refundAmount: data.amount,
-            transactionHash: data.transactionHash,
-          }]);
-          break;
-      }
-    });
+          case 'bid_placed':
+            // Keep the thinking bubble and add bid card below it
+            // Check if this bid already exists (prevent duplicates)
+            setMessages(prev => {
+              const bidExists = prev.some(msg =>
+                msg.type === 'bid' &&
+                msg.agentId === data.agentId &&
+                msg.transactionHash === data.transactionHash
+              );
 
-    // Also poll for initial state
-    fetch(`/api/status?basename=${encodeURIComponent(basename)}`)
-      .then(res => res.json())
-      .then(data => {
-        setCurrentBid(data.currentBid);
-        setTimeRemaining(data.timeRemaining);
+              if (bidExists) {
+                return prev; // Don't add duplicate
+              }
 
-        // Load existing messages from history
-        if (data.bidHistory) {
-          const historicalMessages: StreamingMessage[] = [];
-          data.bidHistory.forEach((bid: any) => {
-            // Add thinking bubble
-            if (bid.thinking) {
-              historicalMessages.push({
-                id: `${bid.agentId}-thinking-${bid.timestamp}`,
-                type: 'thinking',
-                agentId: bid.agentId,
-                timestamp: bid.timestamp,
-                thinking: bid.thinking,
-                strategy: bid.strategy,
-              });
-            }
-            // Add bid card
-            historicalMessages.push({
-              id: `${bid.agentId}-bid-${bid.timestamp}`,
-              type: 'bid',
-              agentId: bid.agentId,
-              timestamp: bid.timestamp,
-              amount: bid.amount,
-              transactionHash: bid.txHash,
-              reflection: bid.reflection,
-              isLoading: !bid.reflection,
+              return [...prev, {
+                id: `${data.agentId}-bid-${Date.now()}`,
+                type: 'bid',
+                agentId: data.agentId,
+                timestamp: data.timestamp,
+                amount: data.amount,
+                transactionHash: data.transactionHash,
+                isLoading: true, // Waiting for reflection
+              }];
             });
-          });
-          setMessages(historicalMessages);
+            setCurrentBid(data.amount);
+            break;
+
+          case 'reflection':
+            // Update the corresponding bid with reflection
+            setMessages(prev => prev.map(msg => {
+              if (msg.type === 'bid' && msg.agentId === data.agentId && msg.isLoading) {
+                return {
+                  ...msg,
+                  reflection: data.reflection,
+                  isLoading: false,
+                };
+              }
+              return msg;
+            }));
+            break;
+
+          case 'refund':
+            // Add refund notification
+            setMessages(prev => [...prev, {
+              id: `${data.agentId}-refund-${Date.now()}`,
+              type: 'refund',
+              agentId: data.agentId,
+              timestamp: data.timestamp,
+              refundAmount: data.amount,
+              transactionHash: data.transactionHash,
+            }]);
+            break;
+
+          case 'withdrawal':
+            // Add withdrawal notification
+            setMessages(prev => [...prev, {
+              id: `${data.agentId}-withdrawal-${Date.now()}`,
+              type: 'withdrawal',
+              agentId: data.agentId,
+              timestamp: data.timestamp,
+              refundAmount: data.amount,
+              reasoning: data.reasoning,
+              transactionHash: data.transactionHash,
+            }]);
+            break;
+
+          case 'auction_ended':
+            // Add auction ended notification
+            setMessages(prev => [...prev, {
+              id: `auction-ended-${Date.now()}`,
+              type: 'auction_ended',
+              timestamp: data.timestamp,
+              winner: data.winner,
+              finalBid: data.finalBid,
+              endReason: data.reason,
+            }]);
+            break;
         }
       });
 
+      // Also poll for initial state
+      fetch(`/api/status?basename=${encodeURIComponent(basename)}`)
+        .then(res => res.json())
+        .then(data => {
+          setCurrentBid(data.currentBid);
+          setTimeRemaining(data.timeRemaining);
+
+          // Load existing messages from history
+          if (data.bidHistory) {
+            const historicalMessages: StreamingMessage[] = [];
+            data.bidHistory.forEach((bid: any) => {
+              // Only add bid cards for historical data (not thinking bubbles)
+              // Thinking bubbles are only shown for live events via SSE
+              historicalMessages.push({
+                id: `${bid.agentId}-bid-${bid.timestamp}`,
+                type: 'bid',
+                agentId: bid.agentId,
+                timestamp: bid.timestamp,
+                amount: bid.amount,
+                transactionHash: bid.txHash,
+                reflection: bid.reflection,
+                isLoading: !bid.reflection,
+              });
+            });
+            setMessages(historicalMessages);
+          }
+        });
+
+      // Handle connection errors and reconnect
+      eventSource.onerror = () => {
+        console.log('SSE connection lost, reconnecting in 3s...');
+        eventSource?.close();
+        reconnectTimeout = setTimeout(connect, 3000);
+      };
+    };
+
+    connect();
+
     return () => {
-      eventSource.close();
+      if (eventSource) {
+        eventSource.close();
+      }
+      if (reconnectTimeout) {
+        clearTimeout(reconnectTimeout);
+      }
     };
   }, [basename]);
 
@@ -179,6 +250,8 @@ export default function AuctionPageStreaming({ params }: { params: Promise<{ bas
         <div className="max-w-4xl mx-auto flex items-center justify-around">
           {['AgentA', 'AgentB'].map(agentId => {
             const balance = agentBalances[agentId] || 0;
+            const status = agentStatus[agentId];
+            const isThinking = status === 'thinking';
 
             return (
               <div key={agentId} className="flex items-center gap-3">
@@ -186,6 +259,9 @@ export default function AuctionPageStreaming({ params }: { params: Promise<{ bas
                 <div>
                   <div className="flex items-center gap-2">
                     <span className="text-[#ffffff] font-semibold">{agentId}</span>
+                    {isThinking && (
+                      <span className="text-[#666666] text-xs animate-pulse">🧠 thinking...</span>
+                    )}
                   </div>
                   <div className="text-[#888888] text-sm">
                     Balance: <span className="text-[#cccccc] font-mono">${balance.toFixed(2)}</span>
@@ -209,7 +285,7 @@ export default function AuctionPageStreaming({ params }: { params: Promise<{ bas
             messages.map((msg) => {
               const isAgentA = msg.agentId === 'AgentA';
 
-              if (msg.type === 'thinking') {
+              if (msg.type === 'thinking' && msg.agentId) {
                 // Thinking bubble
                 return (
                   <div key={msg.id} className={`flex ${isAgentA ? 'justify-start' : 'justify-end'}`}>
@@ -248,7 +324,7 @@ export default function AuctionPageStreaming({ params }: { params: Promise<{ bas
                 );
               }
 
-              if (msg.type === 'bid') {
+              if (msg.type === 'bid' && msg.agentId) {
                 // Bid card
                 return (
                   <div key={msg.id} className={`flex ${isAgentA ? 'justify-start' : 'justify-end'}`}>
@@ -348,9 +424,73 @@ export default function AuctionPageStreaming({ params }: { params: Promise<{ bas
                 );
               }
 
+              if (msg.type === 'withdrawal') {
+                // Withdrawal notification (system message style)
+                return (
+                  <div key={msg.id} className="flex justify-center">
+                    <div className="bg-[#3a2a2a] border border-[#664444] rounded-lg px-6 py-4 text-sm text-[#cccccc] max-w-2xl">
+                      <div className="flex items-center gap-2 mb-2">
+                        <span className="text-2xl">🏳️</span>
+                        <span className="text-[#ffffff] font-semibold">{msg.agentId} withdrew from the auction</span>
+                      </div>
+                      {msg.reasoning && (
+                        <div className="text-[#888888] text-xs mt-2 italic pl-8">
+                          "{msg.reasoning.substring(0, 200)}..."
+                        </div>
+                      )}
+                      <div className="flex items-center gap-2 mt-2 pl-8 text-xs">
+                        <span className="text-[#888888]">
+                          Refunded: <span className="text-[#aaaaaa] font-mono">${msg.refundAmount?.toFixed(2)}</span>
+                        </span>
+                        {msg.transactionHash && (
+                          <a
+                            href={`https://sepolia.basescan.org/tx/${msg.transactionHash}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-[#666666] hover:text-[#888888] underline"
+                          >
+                            tx →
+                          </a>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                );
+              }
+
+              if (msg.type === 'auction_ended') {
+                // Auction ended notification (prominent)
+                return (
+                  <div key={msg.id} className="flex justify-center">
+                    <div className="bg-gradient-to-r from-[#2a3a2a] to-[#2a2a3a] border-2 border-[#4a6a4a] rounded-xl px-8 py-6 text-center max-w-2xl">
+                      <div className="text-4xl mb-3">🏆</div>
+                      <div className="text-[#ffffff] text-xl font-bold mb-2">
+                        Auction Ended!
+                      </div>
+                      <div className="text-[#aaaaaa] text-sm mb-4">
+                        {msg.endReason}
+                      </div>
+                      {msg.winner && (
+                        <div className="bg-[#222222] rounded-lg px-4 py-3 inline-block">
+                          <div className="text-[#888888] text-xs mb-1">Winner</div>
+                          <div className="text-[#ffffff] font-semibold text-lg">
+                            {msg.winner.agentId}
+                          </div>
+                          <div className="text-[#cccccc] text-sm mt-1">
+                            Final Bid: <span className="font-mono">${msg.finalBid?.toFixed(2)}</span>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                );
+              }
+
               return null;
             })
           )}
+          {/* Scroll anchor */}
+          <div ref={messagesEndRef} />
         </div>
       </div>
     </div>

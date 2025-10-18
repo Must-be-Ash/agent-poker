@@ -76,6 +76,10 @@ export async function POST(
           proposedAmount: proposedBid,
           timestamp: new Date().toISOString(),
         });
+
+        // Add a small delay to let the thinking bubble appear in the UI
+        // before we process the payment and show the bid card
+        await new Promise(resolve => setTimeout(resolve, 1500));
       }
 
       // Determine if proposal is acceptable

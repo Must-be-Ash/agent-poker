@@ -13,7 +13,8 @@ export function registerConnection(basename: string, controller: EventController
     connections.set(basename, new Set());
   }
   connections.get(basename)!.add(controller);
-  console.log(`📡 SSE connection registered for ${basename} (${connections.get(basename)!.size} total)`);
+  console.log(`📡 [SSE] Connection registered for "${basename}" (${connections.get(basename)!.size} total)`);
+  console.log(`📡 [SSE] All active basenames:`, Array.from(connections.keys()));
 }
 
 /**
@@ -37,20 +38,21 @@ export function unregisterConnection(basename: string, controller: EventControll
 export function broadcastEvent(basename: string, event: any) {
   const controllers = connections.get(basename);
   if (!controllers || controllers.size === 0) {
-    console.log(`📡 No SSE connections for ${basename}, event not broadcast:`, event.type);
+    console.log(`📡 [WARN] No SSE connections for "${basename}", event not broadcast:`, event.type);
+    console.log(`📡 [DEBUG] Available connections:`, Array.from(connections.keys()));
     return;
   }
 
   const encoder = new TextEncoder();
   const data = `data: ${JSON.stringify(event)}\n\n`;
 
-  console.log(`📡 Broadcasting ${event.type} to ${controllers.size} client(s) for ${basename}`);
+  console.log(`📡 [SUCCESS] Broadcasting ${event.type} to ${controllers.size} client(s) for ${basename}`);
 
   controllers.forEach((controller) => {
     try {
       controller.enqueue(encoder.encode(data));
     } catch (error) {
-      console.error('📡 Failed to send to client, removing connection:', error);
+      console.error('📡 [ERROR] Failed to send to client, removing connection:', error);
       controllers.delete(controller);
     }
   });

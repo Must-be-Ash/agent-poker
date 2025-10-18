@@ -105,7 +105,13 @@ export class IntelligentBiddingAgent {
     const getBalanceTool = FunctionTool.from(
       async () => {
         const balance = await this.getUSDCBalance();
-        return JSON.stringify({ balance, maxBid: this.maxBid });
+        return JSON.stringify({
+          success: true,
+          data: {
+            balance,
+            maxBid: this.maxBid
+          }
+        });
       },
       {
         name: 'get_my_balance',
@@ -124,9 +130,21 @@ export class IntelligentBiddingAgent {
           const response = await axios.get(
             `${this.serverUrl}/api/status?basename=${encodeURIComponent(input.basename)}`
           );
-          return JSON.stringify(response.data);
+
+          const data = response.data;
+
+          // Transform to expected format
+          return JSON.stringify({
+            success: true,
+            data: {
+              winningBid: data.currentBid || 0,
+              winningBidder: data.currentWinner?.agentId || null,
+              timeRemaining: data.timeRemaining ? `${Math.floor(data.timeRemaining / 60)}:${(data.timeRemaining % 60).toString().padStart(2, '0')}` : null,
+              bidHistory: data.bidHistory || [],
+            }
+          });
         } catch (error: any) {
-          return JSON.stringify({ error: error.message });
+          return JSON.stringify({ success: false, error: error.message });
         }
       },
       {
@@ -168,18 +186,28 @@ export class IntelligentBiddingAgent {
           );
 
           console.log(`📡 [${this.agentName}] Server response status: ${response.status}`);
+          console.log(`📡 [${this.agentName}] Server response data:`, JSON.stringify(response.data));
 
           if (response.status === 200 && response.data.success) {
-            return JSON.stringify({
+            const result = {
               success: true,
-              message: `Bid accepted at $${response.data.currentBid}`,
-              currentBid: response.data.currentBid,
-              auctionEndsIn: response.data.auctionEndsIn,
-            });
+              data: {
+                message: `Bid accepted at $${response.data.currentBid}`,
+                currentBid: response.data.currentBid,
+                auctionEndsIn: response.data.auctionEndsIn,
+                transactionHash: response.data.transactionHash,
+              }
+            };
+            console.log(`✅ [${this.agentName}] Returning success:`, JSON.stringify(result));
+            return JSON.stringify(result);
           }
 
           return JSON.stringify({ success: false, message: 'Bid failed' });
         } catch (error: any) {
+          console.error(`❌ [${this.agentName}] Bid request error:`, error.message);
+          console.error(`   Status:`, error.response?.status);
+          console.error(`   Data:`, error.response?.data);
+
           // Handle 400 Bad Request (proposal rejected as too low)
           if (error.response?.status === 400) {
             const rejection = error.response.data;
@@ -212,7 +240,7 @@ export class IntelligentBiddingAgent {
       },
       {
         name: 'place_bid',
-        description: 'Places a bid on the basename with your proposed amount and reasoning. Returns one of: 1) success=true if bid accepted, 2) proposalRejected=true if your amount is too low (you must propose higher), 3) needsNegotiation=true if payment is required. Always check the response and adjust your strategy accordingly.',
+        description: 'CRITICAL: This tool MUST be executed to actually place a bid. Do NOT simulate or guess the response. This makes a real HTTP request with payment to place your bid on the blockchain. Returns one of: 1) success=true if bid accepted, 2) proposalRejected=true if your amount is too low (you must propose higher), 3) needsNegotiation=true if payment is required. Always check the actual response and adjust your strategy accordingly.',
         parameters: {
           type: 'object',
           properties: {
@@ -294,30 +322,78 @@ Think step by step and make your move!`;
 
       console.log(`\n🧠 [${this.agentName}] Starting AI reasoning...`);
 
+      // Notify server that agent is actively thinking
+      try {
+        await axios.post(
+          `${this.serverUrl}/api/agent-status/${basename}`,
+          {
+            agentId: this.agentName,
+            status: 'thinking',
+            timestamp: new Date().toISOString(),
+          }
+        );
+      } catch (error) {
+        // Non-critical, continue even if this fails
+      }
+
       const response = await this.bot.chat({ message: prompt });
 
       console.log(`\n✅ [${this.agentName}] AI decision complete`);
       console.log(response.response);
 
-      // Extract and send the reflection from the response
-      const reflection = response.response;
-      if (reflection && reflection.length > 50) {
+      // Check if agent decided NOT to bid (by looking for keywords in response)
+      const decidedNotToBid = response.response.toLowerCase().includes('not to place') ||
+        response.response.toLowerCase().includes('decided not to bid') ||
+        response.response.toLowerCase().includes('not placing a bid') ||
+        response.response.toLowerCase().includes('withdrawing from') ||
+        response.response.toLowerCase().includes('accept this loss');
+
+      if (decidedNotToBid) {
+        console.log(`\n🏳️ [${this.agentName}] Decided to withdraw from auction`);
+
+        // Request refund from server
         try {
-          await axios.post(
-            `${this.serverUrl}/api/bid/${basename}/reflection`,
+          const refundResponse = await axios.post(
+            `${this.serverUrl}/api/refund-request/${basename}`,
             {
               agentId: this.agentName,
-              reflection: reflection,
+              walletAddress: this.wallet.account.address,
+              reasoning: response.response,
             }
           );
-          console.log(`📝 [${this.agentName}] Reflection submitted to server`);
-        } catch (error: any) {
-          console.error(`❌ [${this.agentName}] Failed to submit reflection:`, error.message);
-        }
-      }
 
-      // Start monitoring for refunds after successful bid
-      this.startRefundMonitoring(basename);
+          console.log(`✅ [${this.agentName}] Withdrawal processed:`, refundResponse.data.message);
+
+          if (refundResponse.data.auctionEnded) {
+            console.log(`🏁 [${this.agentName}] Auction has ended. Opponent won!`);
+            this.isActive = false;
+            this.stopRefundMonitoring();
+            return;
+          }
+        } catch (error: any) {
+          console.error(`❌ [${this.agentName}] Withdrawal failed:`, error.response?.data?.error || error.message);
+        }
+      } else {
+        // Extract and send the reflection from the response
+        const reflection = response.response;
+        if (reflection && reflection.length > 50) {
+          try {
+            await axios.post(
+              `${this.serverUrl}/api/bid/${basename}/reflection`,
+              {
+                agentId: this.agentName,
+                reflection: reflection,
+              }
+            );
+            console.log(`📝 [${this.agentName}] Reflection submitted to server`);
+          } catch (error: any) {
+            console.error(`❌ [${this.agentName}] Failed to submit reflection:`, error.message);
+          }
+        }
+
+        // Start monitoring for refunds after successful bid
+        this.startRefundMonitoring(basename);
+      }
 
     } catch (error: any) {
       console.error(`❌ [${this.agentName}] AI reasoning error:`, error.message);

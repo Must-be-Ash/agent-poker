@@ -26,6 +26,9 @@ export interface BidRecord {
   status: 'active' | 'ended' | 'finalized';
   winnerNotified: boolean;
   basenameTransferTxHash?: string;
+  withdrawnAgents?: string[]; // List of agents who withdrew
+  auctionEnded?: boolean; // True if auction ended early
+  auctionEndReason?: 'withdrawal' | 'timeout'; // Why auction ended
   createdAt: Date;
   updatedAt: Date;
 }

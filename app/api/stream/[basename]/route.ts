@@ -20,8 +20,20 @@ export async function GET(
         encoder.encode(`data: ${JSON.stringify({ type: 'connected' })}\n\n`)
       );
 
+      // Send heartbeat every 15 seconds to keep connection alive
+      const heartbeat = setInterval(() => {
+        try {
+          controller.enqueue(
+            encoder.encode(`: heartbeat\n\n`)
+          );
+        } catch (error) {
+          clearInterval(heartbeat);
+        }
+      }, 15000);
+
       // Cleanup on close
       request.signal.addEventListener('abort', () => {
+        clearInterval(heartbeat);
         unregisterConnection(basename, controller);
       });
     },
