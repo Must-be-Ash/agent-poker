@@ -104,14 +104,17 @@ export class IntelligentBiddingAgent {
   private createAgent() {
     const getBalanceTool = FunctionTool.from(
       async () => {
+        console.log(`\n💵 [${this.agentName}] Checking balance...`);
         const balance = await this.getUSDCBalance();
-        return JSON.stringify({
+        const result = {
           success: true,
           data: {
             balance,
             maxBid: this.maxBid
           }
-        });
+        };
+        console.log(`✅ [${this.agentName}] Balance retrieved:`, JSON.stringify(result));
+        return JSON.stringify(result);
       },
       {
         name: 'get_my_balance',
@@ -126,6 +129,7 @@ export class IntelligentBiddingAgent {
 
     const getAuctionStateTool = FunctionTool.from(
       async (input: { basename: string }) => {
+        console.log(`\n🔍 [${this.agentName}] Fetching auction state for ${input.basename}...`);
         try {
           const response = await axios.get(
             `${this.serverUrl}/api/status?basename=${encodeURIComponent(input.basename)}`
@@ -134,7 +138,7 @@ export class IntelligentBiddingAgent {
           const data = response.data;
 
           // Transform to expected format
-          return JSON.stringify({
+          const result = {
             success: true,
             data: {
               winningBid: data.currentBid || 0,
@@ -142,8 +146,11 @@ export class IntelligentBiddingAgent {
               timeRemaining: data.timeRemaining ? `${Math.floor(data.timeRemaining / 60)}:${(data.timeRemaining % 60).toString().padStart(2, '0')}` : null,
               bidHistory: data.bidHistory || [],
             }
-          });
+          };
+          console.log(`✅ [${this.agentName}] Auction state retrieved:`, JSON.stringify(result));
+          return JSON.stringify(result);
         } catch (error: any) {
+          console.error(`❌ [${this.agentName}] Failed to get auction state:`, error.message);
           return JSON.stringify({ success: false, error: error.message });
         }
       },

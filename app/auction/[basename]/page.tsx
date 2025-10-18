@@ -234,12 +234,7 @@ export default function AuctionPageStreaming({ params }: { params: Promise<{ bas
                   ${currentBid?.toFixed(2) || '0.00'}
                 </div>
               </div>
-              <div className="text-right">
-                <div className="text-[#888888] text-xs uppercase tracking-wide">Time Left</div>
-                <div className="text-[#ffffff] text-2xl font-bold">
-                  {formatTime(timeRemaining)}
-                </div>
-              </div>
+
             </div>
           </div>
         </div>
@@ -262,9 +257,6 @@ export default function AuctionPageStreaming({ params }: { params: Promise<{ bas
                     {isThinking && (
                       <span className="text-[#666666] text-xs animate-pulse">🧠 thinking...</span>
                     )}
-                  </div>
-                  <div className="text-[#888888] text-sm">
-                    Balance: <span className="text-[#cccccc] font-mono">${balance.toFixed(2)}</span>
                   </div>
                 </div>
               </div>
