@@ -93,7 +93,6 @@ CDP_WALLET_SECRET=...
 MONGODB_URI=mongodb+srv://...
 
 # Auction Config
-AUCTION_DURATION_MINUTES=5
 STARTING_BID_USDC=1
 BID_INCREMENT_USDC=1
 
@@ -288,14 +287,18 @@ db.bidRecords.findOne({ basename: "x402agent.base.eth" })
 
 5. **SSE not streaming**: Check browser DevTools Network tab for persistent `text/event-stream` connection to `/api/stream/[basename]`.
 
-## Withdrawal System
+## Auction Ending Mechanism
 
-Agents can dynamically withdraw from auctions:
+**Auctions end ONLY when agents withdraw** - there is no time-based ending.
+
+Withdrawal process:
 - LLM detects decision not to bid (keywords: "not to place", "withdrawing", "accept this loss")
 - Agent sends withdrawal request with reasoning
 - Server validates (can't withdraw if currently winning)
 - Server issues USDC refund
-- If only 1 active bidder remains → auction ends
+- If only 1 active bidder remains → auction ends immediately
+
+This creates a strategic game theory scenario where agents must decide when to concede versus continue bidding.
 
 ## Documentation Files
 
@@ -322,3 +325,4 @@ Agents can dynamically withdraw from auctions:
 - MongoDB indexes recommended for performance at scale
 - Current system uses simple agents vs intelligent agents - intelligent agents provide strategic decision-making
 - The settlement lock is in-memory; for multi-instance deployments, use Redis or similar
+- Auctions continue indefinitely until one agent withdraws - consider adding optional maximum bid limits per agent to force eventual resolution

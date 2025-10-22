@@ -1,5 +1,5 @@
 import { MongoClient, Db } from 'mongodb';
-import { BidRecord } from '@/types';
+import { BidRecord, AuctionEvent } from '@/types';
 
 let client: MongoClient;
 let db: Db;
@@ -61,4 +61,59 @@ export async function addBidToHistory(
       $set: { updatedAt: new Date() }
     }
   );
+}
+
+// Event storage functions for MongoDB-based event streaming
+export async function storeEvent(
+  basename: string,
+  eventType: AuctionEvent['eventType'],
+  data: any
+): Promise<number> {
+  console.log(`📝 [EVENT] storeEvent called: ${eventType} for ${basename}`);
+  console.log(`   Data:`, JSON.stringify(data));
+
+  const { db } = await connectToDatabase();
+
+  // Get the next sequence number for this basename
+  const lastEvent = await db.collection<AuctionEvent>('events')
+    .findOne(
+      { basename },
+      { sort: { sequence: -1 } }
+    );
+
+  const sequence = (lastEvent?.sequence ?? -1) + 1;
+
+  const event: Omit<AuctionEvent, '_id'> = {
+    basename,
+    eventType,
+    agentId: data.agentId,
+    sequence,
+    timestamp: new Date(),
+    data,
+    createdAt: new Date(),
+  };
+
+  console.log(`📝 [EVENT] Inserting event with sequence ${sequence}`);
+  await db.collection<AuctionEvent>('events').insertOne(event as AuctionEvent);
+
+  console.log(`✅ [EVENT] Stored ${eventType} for ${basename} (seq: ${sequence}, agentId: ${data.agentId})`);
+
+  return sequence;
+}
+
+export async function getEventsSince(
+  basename: string,
+  afterSequence: number = -1
+): Promise<AuctionEvent[]> {
+  const { db } = await connectToDatabase();
+
+  const events = await db.collection<AuctionEvent>('events')
+    .find({
+      basename,
+      sequence: { $gt: afterSequence }
+    })
+    .sort({ sequence: 1 })
+    .toArray();
+
+  return events;
 }

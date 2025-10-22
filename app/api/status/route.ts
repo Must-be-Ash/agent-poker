@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getBidRecord } from '@/lib/db';
-import { AUCTION_DURATION_MS } from '@/lib/x402-config';
 
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams;
@@ -17,20 +16,14 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({
         basename,
         currentBid: null,
-        timeRemaining: null,
         bidHistory: [],
       });
     }
-
-    // Calculate time remaining
-    const auctionEndTime = new Date(bidRecord.auctionStartTime.getTime() + AUCTION_DURATION_MS);
-    const timeRemaining = Math.max(0, Math.floor((auctionEndTime.getTime() - Date.now()) / 1000));
 
     return NextResponse.json({
       basename,
       currentBid: bidRecord.currentBid,
       currentWinner: bidRecord.currentWinner,
-      timeRemaining,
       bidHistory: bidRecord.bidHistory.map((bid) => ({
         agentId: bid.agentId,
         amount: bid.amount,

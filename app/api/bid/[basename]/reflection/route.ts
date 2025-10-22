@@ -45,12 +45,10 @@ export async function POST(
 
       console.log(`📝 [${agentId}] Reflection added: ${reflection.substring(0, 100)}...`);
 
-      // Broadcast reflection event
-      broadcastEvent(basename, {
-        type: 'reflection',
+      // Store reflection event
+      await broadcastEvent(basename, 'post_bid_analysis', {
         agentId,
         reflection,
-        timestamp: new Date().toISOString(),
       });
 
       return NextResponse.json({ success: true });

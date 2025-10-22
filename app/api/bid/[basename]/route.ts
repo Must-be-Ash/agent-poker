@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getBidRecord, updateBidRecord, addBidToHistory } from '@/lib/db';
 import { sendRefund, getServerWalletClient } from '@/lib/wallet';
-import { calculateCurrentBidPrice, parseBidAmount, AUCTION_DURATION_MS } from '@/lib/x402-config';
+import { calculateCurrentBidPrice, parseBidAmount } from '@/lib/x402-config';
 import { verify, settle } from 'x402/facilitator';
 import type { PaymentPayload } from 'x402/types';
 import { broadcastEvent } from '@/lib/events';
@@ -24,16 +24,6 @@ export async function POST(
       return NextResponse.json(
         { error: 'Auction has ended' },
         { status: 410 } // Gone
-      );
-    }
-
-    // Check if auction time has elapsed
-    if (bidRecord && bidRecord.auctionEndTime && new Date() > bidRecord.auctionEndTime) {
-      // Mark auction as ended
-      await updateBidRecord(basename, { status: 'ended' });
-      return NextResponse.json(
-        { error: 'Auction time has expired' },
-        { status: 410 }
       );
     }
 
@@ -67,19 +57,16 @@ export async function POST(
           console.log(`   Reasoning: ${strategyReasoning}`);
         }
 
-        // Broadcast thinking event
-        broadcastEvent(basename, {
-          type: 'thinking',
+        // Store thinking event
+        console.log(`🔵 [BID API] Storing thinking event for ${agentId}`);
+        await broadcastEvent(basename, 'agent_thinking', {
           agentId,
           thinking: requestBody.thinking || strategyReasoning,
           strategy: requestBody.strategy,
           proposedAmount: proposedBid,
-          timestamp: new Date().toISOString(),
         });
+        console.log(`✅ [BID API] Thinking event stored`);
 
-        // Add a small delay to let the thinking bubble appear in the UI
-        // before we process the payment and show the bid card
-        await new Promise(resolve => setTimeout(resolve, 1500));
       }
 
       // Determine if proposal is acceptable
@@ -138,9 +125,6 @@ export async function POST(
           minimumToWin: minimumRequiredNum,
           message: negotiationMessage,
           suggestion: minimumRequiredNum + 1.0,
-          timeRemaining: bidRecord?.auctionEndTime
-            ? Math.max(0, Math.floor((bidRecord.auctionEndTime.getTime() - Date.now()) / 1000))
-            : null,
           bidHistory: bidRecord?.bidHistory.slice(-5) || [],
         },
         error: 'Payment required to place bid'
@@ -222,21 +206,22 @@ export async function POST(
 
     console.log(`💰 Bid accepted from ${agentId}: ${bidAmount} USDC`);
 
-    // Broadcast bid placed event
-    broadcastEvent(basename, {
-      type: 'bid_placed',
+    // Store bid placed event
+    console.log(`🔵 [BID API] Storing bid_placed event for ${agentId}`);
+    await broadcastEvent(basename, 'bid_placed', {
       agentId,
       amount: bidAmount,
       transactionHash,
-      timestamp: new Date().toISOString(),
     });
+    console.log(`✅ [BID API] Bid_placed event stored`);
+
 
     // Store previous winner for refund
     const previousWinner = bidRecord?.currentWinner;
 
-    // Calculate auction end time (5 minutes from first bid)
+    // Set auction end time to far future (auction only ends via withdrawal)
     const auctionEndTime = bidRecord?.auctionEndTime ||
-      new Date(Date.now() + AUCTION_DURATION_MS);
+      new Date(Date.now() + 365 * 24 * 60 * 60 * 1000); // 1 year from now
 
     // Update bid record
     await updateBidRecord(basename, {
@@ -276,13 +261,11 @@ export async function POST(
           const refundTxHash = await sendRefund(previousWinner.walletAddress, bidRecord.currentBid);
           console.log(`✅ Refund completed successfully`);
 
-          // Broadcast refund event
-          broadcastEvent(basename, {
-            type: 'refund',
+          // Store refund event
+          await broadcastEvent(basename, 'refund_issued', {
             agentId: previousWinner.agentId,
             amount: bidRecord.currentBid,
             transactionHash: refundTxHash,
-            timestamp: new Date().toISOString(),
           });
         } catch (error: any) {
           console.error('❌ Refund failed:', error.message);
@@ -293,13 +276,11 @@ export async function POST(
               const refundTxHash = await sendRefund(previousWinner.walletAddress, bidRecord.currentBid);
               console.log(`✅ Refund retry successful`);
 
-              // Broadcast refund event
-              broadcastEvent(basename, {
-                type: 'refund',
+              // Store refund event
+              await broadcastEvent(basename, 'refund_issued', {
                 agentId: previousWinner.agentId,
                 amount: bidRecord.currentBid,
                 transactionHash: refundTxHash,
-                timestamp: new Date().toISOString(),
               });
             } catch (retryError: any) {
               console.error('❌ Refund retry failed:', retryError.message);
@@ -309,16 +290,11 @@ export async function POST(
       }, 2000); // Wait 2 seconds after settlement before refunding
     }
 
-    // Calculate time remaining
-    const timeRemaining = Math.max(0, Math.floor((auctionEndTime.getTime() - Date.now()) / 1000));
-
     return NextResponse.json({
       success: true,
       message: `Bid placed: ${bidAmount} USDC`,
       currentWinner: agentId,
       currentBid: bidAmount,
-      auctionEndsIn: timeRemaining,
-      auctionEndTime: auctionEndTime.toISOString(),
     });
 
   } catch (error) {

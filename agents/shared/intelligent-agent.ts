@@ -5,7 +5,8 @@ import { privateKeyToAccount } from 'viem/accounts';
 import { baseSepolia } from 'viem/chains';
 import { Hex } from 'viem';
 import { Anthropic } from '@llamaindex/anthropic';
-import { FunctionTool, ReActAgent } from 'llamaindex';
+import { FunctionTool } from 'llamaindex';
+import { agent } from '@llamaindex/workflow';
 import { z } from 'zod';
 
 const USDC_BASE_SEPOLIA = '0x036CbD53842c5426634e7929541eC2318f3dCF7e';
@@ -94,11 +95,30 @@ export class IntelligentBiddingAgent {
       model: 'claude-3-5-sonnet-20241022',
     });
 
-    // Create agent with tools
-    this.bot = this.createAgent();
-
     console.log(`🧠 ${this.agentName} initialized with AI reasoning`);
     console.log(`   Wallet: ${this.wallet.account.address}`);
+  }
+
+  // Helper to emit events for frontend observability
+  private async emitEvent(basename: string, eventType: string, data: any) {
+    try {
+      console.log(`📤 [${this.agentName}] Emitting event: ${eventType}`);
+      const response = await axios.post(
+        `${this.serverUrl}/api/events/${basename}/emit`,
+        {
+          eventType,
+          agentId: this.agentName,
+          data: {
+            ...data,
+            agentId: this.agentName,
+          },
+        }
+      );
+      console.log(`✅ [${this.agentName}] Event emitted successfully: ${eventType}`);
+    } catch (error: any) {
+      // Non-critical, continue even if event emission fails
+      console.error(`⚠️ [${this.agentName}] Failed to emit event ${eventType}:`, error.message);
+    }
   }
 
   private createAgent() {
@@ -114,6 +134,18 @@ export class IntelligentBiddingAgent {
           }
         };
         console.log(`✅ [${this.agentName}] Balance retrieved:`, JSON.stringify(result));
+
+        // Emit tool call event (try to infer basename from context)
+        try {
+          const basename = process.env.BASENAME_TO_AUCTION;
+          if (basename) {
+            await this.emitEvent(basename, 'agent_tool_call', {
+              tool: 'get_my_balance',
+              result: { balance, maxBid: this.maxBid },
+            });
+          }
+        } catch (e) { /* ignore */ }
+
         return JSON.stringify(result);
       },
       {
@@ -130,6 +162,13 @@ export class IntelligentBiddingAgent {
     const getAuctionStateTool = FunctionTool.from(
       async (input: { basename: string }) => {
         console.log(`\n🔍 [${this.agentName}] Fetching auction state for ${input.basename}...`);
+
+        // Emit tool call event
+        await this.emitEvent(input.basename, 'agent_tool_call', {
+          tool: 'get_auction_state',
+          args: { basename: input.basename },
+        });
+
         try {
           const response = await axios.get(
             `${this.serverUrl}/api/status?basename=${encodeURIComponent(input.basename)}`
@@ -148,6 +187,13 @@ export class IntelligentBiddingAgent {
             }
           };
           console.log(`✅ [${this.agentName}] Auction state retrieved:`, JSON.stringify(result));
+
+          // Emit tool response event
+          await this.emitEvent(input.basename, 'agent_tool_response', {
+            tool: 'get_auction_state',
+            result: result.data,
+          });
+
           return JSON.stringify(result);
         } catch (error: any) {
           console.error(`❌ [${this.agentName}] Failed to get auction state:`, error.message);
@@ -177,6 +223,12 @@ export class IntelligentBiddingAgent {
           console.log(`💰 [${this.agentName}] Proposing bid: $${input.proposedAmount.toFixed(2)}`);
           console.log(`🌐 [${this.agentName}] Sending to: ${this.serverUrl}/api/bid/${input.basename}`);
 
+          // Emit 402 call initiated event
+          await this.emitEvent(input.basename, '402_call_initiated', {
+            proposedAmount: input.proposedAmount,
+            reasoning: input.reasoning,
+          });
+
           // First request with proposed bid (no payment yet)
           const response = await this.axiosWithPayment.post(
             `${this.serverUrl}/api/bid/${input.basename}`,
@@ -194,6 +246,13 @@ export class IntelligentBiddingAgent {
 
           console.log(`📡 [${this.agentName}] Server response status: ${response.status}`);
           console.log(`📡 [${this.agentName}] Server response data:`, JSON.stringify(response.data));
+
+          // Emit 402 response received event
+          await this.emitEvent(input.basename, '402_response_received', {
+            accepted: response.status === 200,
+            proposedAmount: input.proposedAmount,
+            message: response.data.message || 'Bid processed',
+          });
 
           if (response.status === 200 && response.data.success) {
             const result = {
@@ -269,10 +328,70 @@ export class IntelligentBiddingAgent {
       }
     );
 
-    return new ReActAgent({
+    const withdrawFromAuctionTool = FunctionTool.from(
+      async (input: { basename: string; reasoning: string }) => {
+        try {
+          console.log(`\n🏳️ [${this.agentName}] Withdrawing from auction...`);
+          console.log(`📝 [${this.agentName}] Reasoning: ${input.reasoning}`);
+
+          // Emit withdrawal decision event
+          await this.emitEvent(input.basename, 'withdrawal_decision', {
+            reasoning: input.reasoning,
+          });
+
+          const response = await axios.post(
+            `${this.serverUrl}/api/refund-request/${input.basename}`,
+            {
+              agentId: this.agentName,
+              walletAddress: this.wallet.account.address,
+              reasoning: input.reasoning,
+            }
+          );
+
+          console.log(`✅ [${this.agentName}] Withdrawal processed:`, response.data.message);
+
+          if (response.data.auctionEnded) {
+            console.log(`🏁 [${this.agentName}] Auction has ended. Opponent won!`);
+            this.isActive = false;
+            this.stopRefundMonitoring();
+          }
+
+          return JSON.stringify({
+            success: true,
+            message: response.data.message,
+            auctionEnded: response.data.auctionEnded,
+          });
+        } catch (error: any) {
+          console.error(`❌ [${this.agentName}] Withdrawal failed:`, error.response?.data?.error || error.message);
+          return JSON.stringify({
+            success: false,
+            error: error.response?.data?.error || error.message,
+          });
+        }
+      },
+      {
+        name: 'withdraw_from_auction',
+        description: 'CRITICAL: Call this tool to officially withdraw from the auction and forfeit your position. This will request a refund of your previous bid (if any) and remove you from the auction. Use this when you decide the current bid is too high for your budget or you no longer wish to compete. You MUST call this tool to withdraw - simply stating your intention is not sufficient.',
+        parameters: {
+          type: 'object',
+          properties: {
+            basename: {
+              type: 'string',
+              description: 'The basename auction to withdraw from',
+            },
+            reasoning: {
+              type: 'string',
+              description: 'Your reasoning for withdrawing from the auction',
+            },
+          },
+          required: ['basename', 'reasoning'],
+        },
+      }
+    );
+
+    return agent({
       llm: this.llm,
-      tools: [getBalanceTool, getAuctionStateTool, placeBidTool],
-      verbose: true,
+      tools: [getBalanceTool, getAuctionStateTool, placeBidTool, withdrawFromAuctionTool],
     });
   }
 
@@ -296,7 +415,25 @@ export class IntelligentBiddingAgent {
         ? `\n\nIMPORTANT: You were just outbid! You received a refund of $${this.lastRefundAmount.toFixed(2)}. This means another agent bid higher than you. Analyze why you lost and adjust your strategy.`
         : '';
 
+      // Emit evaluation start event
+      await this.emitEvent(basename, 'agent_evaluation_start', {
+        trigger: this.lastRefundAmount ? 'refund_detected' : 'initial',
+        balance,
+        lastRefundAmount: this.lastRefundAmount,
+      });
+
+      // Create a fresh agent instance for each evaluation to ensure tools are actually executed
+      // (prevents ReActAgent from reusing cached tool responses from conversation memory)
+      console.log(`🔄 [${this.agentName}] Creating fresh agent instance for evaluation...`);
+      const bot = this.createAgent();
+
       const prompt = `You are ${this.agentName}, an autonomous bidding agent competing for the basename "${basename}".
+
+⚠️ CRITICAL REQUIREMENTS - READ CAREFULLY:
+- This is NOT a simulation - you are making REAL blockchain transactions with REAL money
+- You MUST actually execute the tools provided - DO NOT simulate, guess, or predict their responses
+- You MUST take action by the end of this evaluation: either place a bid OR withdraw from the auction
+- Simply providing analysis or recommendations is NOT sufficient - you must ACT
 
 Your Goal: Win the basename while spending as little as possible. Be strategic and competitive.
 
@@ -304,28 +441,42 @@ Your Constraints:
 - Maximum budget: $${this.maxBid.toFixed(2)}
 - Current balance: $${balance.toFixed(2)}
 
-Instructions:
-1. Use get-auction-state to see the current auction status
-2. Use get-my-balance to confirm your funds
-3. Analyze the situation:
-   - What's the current bid?
-   - Who's winning?
-   - How much time is left?
-   - What's the bidding pattern?
-4. Decide on a strategic bid amount and reasoning
-5. Use place-bid to submit your bid
-6. Provide a final strategic analysis of your actions and the outcome
+REQUIRED EXECUTION STEPS (follow in order):
 
-Be creative with your strategy! You can:
-- Start conservative to test the waters
-- Jump high to intimidate competitors
-- Bid just above minimum to save money
-- Wait for the right moment
-- Bluff with aggressive early bids
+Step 1: CALL get_auction_state tool
+- You MUST execute this tool to get current auction data
+- DO NOT guess or assume what the response will be
+
+Step 2: CALL get_my_balance tool
+- You MUST execute this tool to confirm your available funds
+- DO NOT skip this step
+
+Step 3: Analyze the situation
+- What's the current bid?
+- Who's winning?
+- What's the bidding pattern?
+- How does this compare to your budget?
+
+Step 4: MAKE YOUR DECISION (you MUST choose ONE):
+
+Option A: Place a bid
+- CALL the place_bid tool with your chosen amount and reasoning
+- The tool will handle the actual blockchain transaction
+- You can bid conservatively OR aggressively based on your strategy
+
+Option B: Withdraw from auction
+- If the current bid exceeds your budget or you decide not to compete
+- CALL the withdraw_from_auction tool with your reasoning
+- This will officially remove you from the auction and request a refund
 
 ${refundContext}
 
-Think step by step and make your move!`;
+Strategic tips (be creative with your bidding):
+- Conservative: Bid just above the minimum to save budget
+- Aggressive: Jump high to intimidate competitors
+- Tactical: Wait and observe patterns before committing
+
+REMEMBER: You MUST actually execute the tools and take action. This is a real auction with real consequences!`;
 
       console.log(`\n🧠 [${this.agentName}] Starting AI reasoning...`);
 
@@ -343,64 +494,33 @@ Think step by step and make your move!`;
         // Non-critical, continue even if this fails
       }
 
-      const response = await this.bot.chat({ message: prompt });
+      const response = await bot.run(prompt);
 
       console.log(`\n✅ [${this.agentName}] AI decision complete`);
-      console.log(response.response);
+      console.log(response.data.result);
 
-      // Check if agent decided NOT to bid (by looking for keywords in response)
-      const decidedNotToBid = response.response.toLowerCase().includes('not to place') ||
-        response.response.toLowerCase().includes('decided not to bid') ||
-        response.response.toLowerCase().includes('not placing a bid') ||
-        response.response.toLowerCase().includes('withdrawing from') ||
-        response.response.toLowerCase().includes('accept this loss');
+      // Withdrawal is now handled by the withdraw_from_auction tool
+      // No need for keyword parsing - agent explicitly calls the tool
 
-      if (decidedNotToBid) {
-        console.log(`\n🏳️ [${this.agentName}] Decided to withdraw from auction`);
-
-        // Request refund from server
+      // Extract and send the reflection from the response
+      const reflection = response.data.result;
+      if (reflection && reflection.length > 50) {
         try {
-          const refundResponse = await axios.post(
-            `${this.serverUrl}/api/refund-request/${basename}`,
+          await axios.post(
+            `${this.serverUrl}/api/bid/${basename}/reflection`,
             {
               agentId: this.agentName,
-              walletAddress: this.wallet.account.address,
-              reasoning: response.response,
+              reflection: reflection,
             }
           );
-
-          console.log(`✅ [${this.agentName}] Withdrawal processed:`, refundResponse.data.message);
-
-          if (refundResponse.data.auctionEnded) {
-            console.log(`🏁 [${this.agentName}] Auction has ended. Opponent won!`);
-            this.isActive = false;
-            this.stopRefundMonitoring();
-            return;
-          }
+          console.log(`📝 [${this.agentName}] Reflection submitted to server`);
         } catch (error: any) {
-          console.error(`❌ [${this.agentName}] Withdrawal failed:`, error.response?.data?.error || error.message);
+          console.error(`❌ [${this.agentName}] Failed to submit reflection:`, error.message);
         }
-      } else {
-        // Extract and send the reflection from the response
-        const reflection = response.response;
-        if (reflection && reflection.length > 50) {
-          try {
-            await axios.post(
-              `${this.serverUrl}/api/bid/${basename}/reflection`,
-              {
-                agentId: this.agentName,
-                reflection: reflection,
-              }
-            );
-            console.log(`📝 [${this.agentName}] Reflection submitted to server`);
-          } catch (error: any) {
-            console.error(`❌ [${this.agentName}] Failed to submit reflection:`, error.message);
-          }
-        }
-
-        // Start monitoring for refunds after successful bid
-        this.startRefundMonitoring(basename);
       }
+
+      // Start monitoring for refunds after evaluation
+      this.startRefundMonitoring(basename);
 
     } catch (error: any) {
       console.error(`❌ [${this.agentName}] AI reasoning error:`, error.message);
@@ -441,6 +561,13 @@ Think step by step and make your move!`;
 
         console.log(`\n🔔 [${this.agentName}] REFUND DETECTED: ${refundAmount.toFixed(2)} USDC`);
         console.log(`   I've been outbid! Time to reconsider my strategy... 🤔`);
+
+        // Emit refund detected event
+        await this.emitEvent(basename, 'refund_detected', {
+          amount: refundAmount,
+          previousBalance,
+          currentBalance,
+        });
 
         this.stopRefundMonitoring();
 

@@ -18,12 +18,10 @@ export async function POST(
 
   console.log(`🤖 [${agentId}] Status update: ${status}`);
 
-  // Broadcast agent status event
-  broadcastEvent(basename, {
-    type: 'agent_status',
+  // Store agent status event
+  await broadcastEvent(basename, 'agent_status', {
     agentId,
     status, // 'thinking', 'idle', etc.
-    timestamp: new Date().toISOString(),
   });
 
   return NextResponse.json({ success: true });

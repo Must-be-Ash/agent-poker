@@ -27,8 +27,8 @@ export interface BidRecord {
   winnerNotified: boolean;
   basenameTransferTxHash?: string;
   withdrawnAgents?: string[]; // List of agents who withdrew
-  auctionEnded?: boolean; // True if auction ended early
-  auctionEndReason?: 'withdrawal' | 'timeout'; // Why auction ended
+  auctionEnded?: boolean; // True if auction ended
+  auctionEndReason?: 'withdrawal'; // Why auction ended
   createdAt: Date;
   updatedAt: Date;
 }
@@ -46,4 +46,30 @@ export interface BidEvent {
   amount: number;
   timestamp: Date;
   message: string;
+}
+
+export interface AuctionEvent {
+  _id?: ObjectId;
+  basename: string;
+  eventType:
+    | 'agent_evaluation_start'
+    | 'agent_tool_call'
+    | 'agent_tool_response'
+    | 'agent_thinking'
+    | '402_call_initiated'
+    | '402_response_received'
+    | 'payment_signing'
+    | 'payment_sent'
+    | 'bid_placed'
+    | 'post_bid_analysis'
+    | 'refund_detected'
+    | 'refund_issued'
+    | 'withdrawal_decision'
+    | 'auction_ended'
+    | 'agent_status';
+  agentId?: string;
+  sequence: number;
+  timestamp: Date;
+  data: any;
+  createdAt: Date;
 }

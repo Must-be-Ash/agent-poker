@@ -78,14 +78,12 @@ export async function POST(
       withdrawnAgents,
     });
 
-    // Broadcast withdrawal event
-    broadcastEvent(basename, {
-      type: 'withdrawal',
+    // Store withdrawal event
+    await broadcastEvent(basename, 'withdrawal_decision', {
       agentId,
       amount: refundAmount,
       reasoning: reasoning || 'Agent decided to stop bidding',
       transactionHash: refundTxHash,
-      timestamp: new Date().toISOString(),
     });
 
     // Check if auction should end (only one active bidder remaining)
@@ -95,13 +93,11 @@ export async function POST(
     if (activeAgents <= 1) {
       console.log(`🏁 Auction ending - only ${activeAgents} active bidder(s) remaining`);
 
-      // Broadcast auction end event
-      broadcastEvent(basename, {
-        type: 'auction_ended',
+      // Store auction end event
+      await broadcastEvent(basename, 'auction_ended', {
         winner: bidRecord.currentWinner,
         finalBid: bidRecord.currentBid,
         reason: 'All other bidders withdrew',
-        timestamp: new Date().toISOString(),
       });
 
       // Mark auction as ended
