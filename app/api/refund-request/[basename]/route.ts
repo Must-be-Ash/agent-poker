@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getBidRecord, updateBidRecord } from '@/lib/db';
+import { getBidRecord, updateBidRecord, markAgentAsWithdrawn, addOrUpdateParticipatingAgent } from '@/lib/db';
 import { sendRefund } from '@/lib/wallet';
 import { broadcastEvent } from '@/lib/events';
 
@@ -28,17 +28,10 @@ export async function POST(
       );
     }
 
-    // Find the agent's last bid in history
-    const agentBids = bidRecord.bidHistory.filter(bid => bid.agentId === agentId);
-
-    if (agentBids.length === 0) {
-      return NextResponse.json(
-        { error: 'No bids found for this agent' },
-        { status: 404 }
-      );
-    }
-
-    const lastBid = agentBids[agentBids.length - 1];
+    // Find the agent's last bid in history (if any)
+    const agentBids = (bidRecord.bidHistory || []).filter(bid => bid.agentId === agentId);
+    const hasBids = agentBids.length > 0;
+    const lastBid = hasBids ? agentBids[agentBids.length - 1] : null;
 
     // Check if this agent is currently the highest bidder
     if (bidRecord.currentWinner?.agentId === agentId) {
@@ -48,35 +41,37 @@ export async function POST(
       );
     }
 
-    // Verify the wallet address matches
-    if (bidRecord.currentWinner?.walletAddress !== walletAddress &&
-      !bidRecord.bidHistory.some(bid => bid.agentId === agentId)) {
-      return NextResponse.json(
-        { error: 'Wallet address does not match bid records' },
-        { status: 403 }
-      );
-    }
-
     console.log(`🏳️ [${agentId}] Requesting withdrawal from auction for ${basename}`);
     console.log(`   Reasoning: ${reasoning || 'No reasoning provided'}`);
+    console.log(`   Has placed bids: ${hasBids}`);
 
-    // Mark agent as withdrawn
+    // Issue refund only if they actually placed bids
+    let refundTxHash: string | undefined;
+    let refundAmount = 0;
+
+    if (hasBids && lastBid) {
+      refundAmount = lastBid.amount;
+      console.log(`💸 Issuing withdrawal refund of ${refundAmount} USDC to ${agentId}...`);
+      refundTxHash = await sendRefund(walletAddress, refundAmount);
+      console.log(`✅ Withdrawal refund completed: ${refundTxHash}`);
+    } else {
+      console.log(`ℹ️ No refund needed - ${agentId} never placed any bids`);
+    }
+
+    // Ensure agent exists in participatingAgents before marking as withdrawn
+    await addOrUpdateParticipatingAgent(basename, agentId, walletAddress);
+
+    // Mark agent as withdrawn using atomic operation
+    await markAgentAsWithdrawn(basename, agentId);
+
+    // Also update legacy withdrawnAgents array for backwards compatibility
     const withdrawnAgents = bidRecord.withdrawnAgents || [];
     if (!withdrawnAgents.includes(agentId)) {
       withdrawnAgents.push(agentId);
+      await updateBidRecord(basename, {
+        withdrawnAgents,
+      });
     }
-
-    // Issue refund for their last bid amount
-    const refundAmount = lastBid.amount;
-    console.log(`💸 Issuing withdrawal refund of ${refundAmount} USDC to ${agentId}...`);
-
-    const refundTxHash = await sendRefund(walletAddress, refundAmount);
-    console.log(`✅ Withdrawal refund completed: ${refundTxHash}`);
-
-    // Update bid record with withdrawal
-    await updateBidRecord(basename, {
-      withdrawnAgents,
-    });
 
     // Store withdrawal event
     await broadcastEvent(basename, 'withdrawal_decision', {
@@ -86,35 +81,55 @@ export async function POST(
       transactionHash: refundTxHash,
     });
 
-    // Check if auction should end (only one active bidder remaining)
-    const totalBidders = new Set(bidRecord.bidHistory.map(bid => bid.agentId)).size;
-    const activeAgents = totalBidders - withdrawnAgents.length;
+    // Re-fetch bid record to get updated participatingAgents after withdrawal
+    const updatedBidRecord = await getBidRecord(basename);
+    if (!updatedBidRecord) {
+      return NextResponse.json(
+        { error: 'Failed to retrieve updated auction state' },
+        { status: 500 }
+      );
+    }
 
-    if (activeAgents <= 1) {
-      console.log(`🏁 Auction ending - only ${activeAgents} active bidder(s) remaining`);
+    // Check if auction should end (only one active participant remaining)
+    const activeParticipants = (updatedBidRecord.participatingAgents || []).filter(a => a.status === 'active');
+    const auctionShouldEnd = activeParticipants.length <= 1;
 
-      // Store auction end event
-      await broadcastEvent(basename, 'auction_ended', {
-        winner: bidRecord.currentWinner,
-        finalBid: bidRecord.currentBid,
-        reason: 'All other bidders withdrew',
-      });
+    if (auctionShouldEnd) {
+      const hasActiveBids = updatedBidRecord.currentBid > 0;
 
-      // Mark auction as ended
-      await updateBidRecord(basename, {
-        auctionEnded: true,
-        auctionEndReason: 'withdrawal',
-      });
+      if (hasActiveBids) {
+        // Case 1: There are bids - end auction and declare winner
+        console.log(`🏁 Auction ending - only ${activeParticipants.length} active participant(s) remaining`);
+        console.log(`   Winner: ${updatedBidRecord.currentWinner?.agentId} with $${updatedBidRecord.currentBid}`);
+
+        await broadcastEvent(basename, 'auction_ended', {
+          winner: updatedBidRecord.currentWinner,
+          finalBid: updatedBidRecord.currentBid,
+          reason: 'All other bidders withdrew',
+        });
+
+        await updateBidRecord(basename, {
+          status: 'ended',
+          auctionEnded: true,
+          auctionEndReason: 'withdrawal',
+        });
+      } else {
+        // Case 2: No bids yet - auction continues, next bid from remaining agent will continue normally
+        console.log(`ℹ️ Only 1 active participant remaining, but no bids yet`);
+        console.log(`   Auction continues - ${activeParticipants[0]?.agentId} can still place bids`);
+      }
     }
 
     return NextResponse.json({
       success: true,
       refunded: refundAmount,
       transactionHash: refundTxHash,
-      auctionEnded: activeAgents <= 1,
-      message: activeAgents <= 1
-        ? 'Refund issued. Auction has ended - opponent won!'
-        : 'Refund issued. You have withdrawn from the auction.',
+      auctionEnded: auctionShouldEnd && updatedBidRecord.currentBid > 0,
+      message: auctionShouldEnd && updatedBidRecord.currentBid > 0
+        ? 'Withdrawal successful. Auction has ended - opponent won!'
+        : hasBids
+        ? `Refund of ${refundAmount} USDC issued. You have withdrawn from the auction.`
+        : 'Withdrawal successful. You have been removed from the auction.',
     });
 
   } catch (error: unknown) {

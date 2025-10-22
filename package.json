@@ -14,6 +14,7 @@
     "fund": "tsx fund-wallet.ts",
     "fund:agents": "tsx fund-agents.ts",
     "balance": "tsx check-balance.ts",
+    "transfer": "tsx transfer-usdc.ts",
     "clean:db": "tsx scripts/clean-db.ts"
   },
   "dependencies": {

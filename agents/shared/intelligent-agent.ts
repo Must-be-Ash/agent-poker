@@ -427,7 +427,7 @@ export class IntelligentBiddingAgent {
             fetch,
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             walletClient as any,
-            BigInt(0.02 * 10 ** 6) // Firecrawl costs $0.01, small buffer for safety
+            BigInt(0.50 * 10 ** 6) // Allow up to $0.50 USDC for search
           );
 
           // Emit Firecrawl 402 call event
@@ -440,7 +440,7 @@ export class IntelligentBiddingAgent {
             });
           }
 
-          // Call Firecrawl search API (v2 endpoint)
+          // Call Firecrawl search API (v2 endpoint requires BOTH API key + x402 payment)
           const response = await fetchWithPayment('https://api.firecrawl.dev/v2/x402/search', {
             method: 'POST',
             headers: {

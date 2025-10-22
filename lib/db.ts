@@ -63,6 +63,88 @@ export async function addBidToHistory(
   );
 }
 
+export async function addOrUpdateParticipatingAgent(
+  basename: string,
+  agentId: string,
+  walletAddress?: string
+): Promise<void> {
+  const { db } = await connectToDatabase();
+  const now = new Date();
+
+  // Try to update existing agent's lastActivity
+  const updateResult = await db.collection<BidRecord>('bids').updateOne(
+    {
+      basename,
+      'participatingAgents.agentId': agentId,
+      'participatingAgents.status': 'active'
+    },
+    {
+      $set: {
+        'participatingAgents.$.lastActivity': now,
+        ...(walletAddress ? { 'participatingAgents.$.walletAddress': walletAddress } : {}),
+        updatedAt: now
+      }
+    }
+  );
+
+  // If no agent was updated, add new participant atomically
+  if (updateResult.matchedCount === 0) {
+    await db.collection<BidRecord>('bids').updateOne(
+      {
+        basename,
+        'participatingAgents.agentId': { $ne: agentId } // Only add if agent doesn't exist
+      },
+      {
+        $push: {
+          participatingAgents: {
+            agentId,
+            walletAddress,
+            status: 'active',
+            firstSeen: now,
+            lastActivity: now
+          }
+        },
+        $set: { updatedAt: now },
+        $setOnInsert: {
+          basename,
+          currentBid: 0,
+          currentWinner: null,
+          bidHistory: [],
+          auctionStartTime: now,
+          auctionEndTime: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000), // 1 year from now
+          status: 'active',
+          winnerNotified: false,
+          withdrawnAgents: [],
+          createdAt: now
+        }
+      },
+      { upsert: true }
+    );
+  }
+}
+
+export async function markAgentAsWithdrawn(
+  basename: string,
+  agentId: string
+): Promise<void> {
+  const { db } = await connectToDatabase();
+  const now = new Date();
+
+  await db.collection<BidRecord>('bids').updateOne(
+    {
+      basename,
+      'participatingAgents.agentId': agentId
+    },
+    {
+      $set: {
+        'participatingAgents.$.status': 'withdrawn',
+        'participatingAgents.$.lastActivity': now,
+        updatedAt: now
+      }
+    }
+  );
+}
+
 // Event storage functions for MongoDB-based event streaming
 export async function storeEvent(
   basename: string,

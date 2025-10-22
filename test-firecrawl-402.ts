@@ -76,11 +76,12 @@ async function testFirecrawl402() {
     console.log(`📊 Response status: ${response.status}`);
     console.log(`📊 Response headers:`, Object.fromEntries(response.headers.entries()));
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error(`❌ Firecrawl API error:`, response.status, errorText);
-      return;
-    }
+    // Don't check response.ok - let x402-fetch handle 402 internally
+    // if (!response.ok) {
+    //   const errorText = await response.text();
+    //   console.error(`❌ Firecrawl API error:`, response.status, errorText);
+    //   return;
+    // }
 
     const result = await response.json();
     console.log('✅ Firecrawl API response received!');

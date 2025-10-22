@@ -98,7 +98,7 @@ export default function AuctionPagePolling({ params }: { params: Promise<{ basen
     if (eventType === 'refund_issued' || eventType === 'withdrawal_decision' || eventType === 'auction_ended') {
       if (eventType === 'refund_issued') {
         return (
-          <div key={event.sequence} className="flex justify-center my-6">
+          <div key={`${event.sequence}-${event.eventType}-${new Date(event.timestamp).getTime()}`} className="flex justify-center my-6">
             <div className="bg-[#333333] rounded-2xl px-4 py-2 max-w-lg flex items-center justify-between border border-[#444444]">
               <div className="flex items-center gap-2">
                 <div className={`w-3 h-3 rounded-full ${
@@ -125,7 +125,7 @@ export default function AuctionPagePolling({ params }: { params: Promise<{ basen
 
       if (eventType === 'withdrawal_decision') {
         return (
-          <div key={event.sequence} className="flex justify-center my-6">
+          <div key={`${event.sequence}-${event.eventType}-${new Date(event.timestamp).getTime()}`} className="flex justify-center my-6">
             <div className="bg-[#2a2a2a] border border-[#444444] rounded-lg px-4 py-3 max-w-md">
               <div className="flex items-center gap-3">
                 <div className="text-2xl">🏳️</div>
@@ -145,7 +145,7 @@ export default function AuctionPagePolling({ params }: { params: Promise<{ basen
 
       if (eventType === 'auction_ended') {
         return (
-          <div key={event.sequence} className="flex justify-center my-6">
+          <div key={`${event.sequence}-${event.eventType}-${new Date(event.timestamp).getTime()}`} className="flex justify-center my-6">
             <div className="bg-[#2a2a2a] border border-[#444444] rounded-lg px-6 py-4 max-w-md text-center">
               <div className="text-4xl mb-3">🏆</div>
               <div className="text-[#ffffff] text-xl font-bold mb-2">Auction Ended!</div>
@@ -163,7 +163,7 @@ export default function AuctionPagePolling({ params }: { params: Promise<{ basen
 
     // Agent events - left/right aligned
     return (
-      <div key={event.sequence} className={`flex ${isAgentA ? 'justify-start' : 'justify-end'} mb-4`}>
+      <div key={`${event.sequence}-${event.eventType}-${new Date(event.timestamp).getTime()}`} className={`flex ${isAgentA ? 'justify-start' : 'justify-end'} mb-4`}>
         <div className={`flex gap-3 max-w-lg ${isAgentA ? 'flex-row' : 'flex-row-reverse'}`}>
           {/* Avatar */}
           <div className="flex-shrink-0">

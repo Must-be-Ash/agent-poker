@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getBidRecord, updateBidRecord, addBidToHistory } from '@/lib/db';
+import { getBidRecord, updateBidRecord, addBidToHistory, addOrUpdateParticipatingAgent } from '@/lib/db';
 import { sendRefund, getServerWalletClient } from '@/lib/wallet';
 import { calculateCurrentBidPrice, parseBidAmount } from '@/lib/x402-config';
 import { verify, settle } from 'x402/facilitator';
@@ -49,6 +49,13 @@ export async function POST(
       // Calculate minimum required bid
       const minimumRequired = calculateCurrentBidPrice(currentBid);
       const minimumRequiredNum = parseBidAmount(minimumRequired);
+
+      // Track agent participation (record their interest from first proposal)
+      // Uses atomic MongoDB operation to prevent race conditions
+      if (agentId !== 'unknown') {
+        console.log(`👤 [${agentId}] Recording proposal - tracking as participating agent`);
+        await addOrUpdateParticipatingAgent(basename, agentId);
+      }
 
       // Log agent's proposal and broadcast thinking event
       if (proposedBid) {
@@ -125,7 +132,7 @@ export async function POST(
           minimumToWin: minimumRequiredNum,
           message: negotiationMessage,
           suggestion: minimumRequiredNum + 1.0,
-          bidHistory: bidRecord?.bidHistory.slice(-5) || [],
+          bidHistory: bidRecord?.bidHistory?.slice(-5) || [],
         },
         error: 'Payment required to place bid'
       };
@@ -252,6 +259,10 @@ export async function POST(
       strategy: typeof requestBody.strategy === 'string' ? requestBody.strategy : undefined,
       reasoning: strategyReasoning || undefined,
     });
+
+    // Update participating agent's wallet address now that they've paid
+    // Uses atomic operation to prevent race conditions
+    await addOrUpdateParticipatingAgent(basename, agentId, payerAddress);
 
     // Refund previous bidder if exists
     if (previousWinner && bidRecord?.currentBid) {

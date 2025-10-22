@@ -21,12 +21,19 @@ export interface BidRecord {
     reasoning?: string;
     reflection?: string;
   }[];
+  participatingAgents?: {
+    agentId: string;
+    walletAddress?: string;
+    status: 'active' | 'withdrawn';
+    firstSeen: Date;
+    lastActivity: Date;
+  }[];
   auctionStartTime: Date;
   auctionEndTime: Date;
   status: 'active' | 'ended' | 'finalized';
   winnerNotified: boolean;
   basenameTransferTxHash?: string;
-  withdrawnAgents?: string[]; // List of agents who withdrew
+  withdrawnAgents?: string[]; // List of agents who withdrew (deprecated - use participatingAgents instead)
   auctionEnded?: boolean; // True if auction ended
   auctionEndReason?: 'withdrawal'; // Why auction ended
   createdAt: Date;
