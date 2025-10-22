@@ -18,6 +18,12 @@ const eslintConfig = [
       "out/**",
       "build/**",
       "next-env.d.ts",
+      // Script files
+      "export-private-key.ts",
+      "fund-agents.ts",
+      "fund-wallet.ts",
+      "test-firecrawl-402.ts",
+      "scripts/**",
     ],
   },
 ];

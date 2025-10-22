@@ -7,7 +7,7 @@ import type { PaymentPayload } from 'x402/types';
 import { broadcastEvent } from '@/lib/events';
 
 // Simple in-memory lock to prevent concurrent settlements
-const settlementLocks = new Map<string, Promise<any>>();
+const settlementLocks = new Map<string, Promise<unknown>>();
 
 export async function POST(
   request: NextRequest,
@@ -34,7 +34,7 @@ export async function POST(
     const strategyReasoning = request.headers.get('X-Strategy-Reasoning');
 
     // Parse request body for thinking/strategy
-    let requestBody: any = {};
+    let requestBody: Record<string, unknown> = {};
     try {
       requestBody = await request.json();
     } catch {
@@ -154,6 +154,7 @@ export async function POST(
     // Step 1: Verify the payment
     console.log(`🔍 Verifying payment from ${agentId}...`);
     const walletClient = await getServerWalletClient();
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- x402 facilitator type incompatible with viem wallet client type
     const verifyResult = await verify(walletClient as any, payment, paymentRequirements);
 
     if (!verifyResult.isValid) {
@@ -177,6 +178,7 @@ export async function POST(
     }
 
     // Create new settlement promise and store it
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- x402 facilitator type incompatible with viem wallet client type
     const settlementPromise = settle(walletClient as any, payment, paymentRequirements);
     settlementLocks.set(lockKey, settlementPromise);
 
@@ -199,7 +201,7 @@ export async function POST(
     console.log(`✅ Payment settled! Tx: ${settleResult.transaction}`);
 
     const payerAddress = verifyResult.payer || 'unknown';
-    const exactPayload = payment.payload as any;
+    const exactPayload = payment.payload as { authorization?: { value?: string } };
     const paidAmount = exactPayload?.authorization?.value || '0';
     const bidAmount = parseFloat(paidAmount) / 1_000_000;
     const transactionHash = settleResult.transaction;
@@ -230,7 +232,7 @@ export async function POST(
       currentWinner: {
         agentId,
         walletAddress: payerAddress || 'unknown',
-        externalId: (payment as any).externalId || '',
+        externalId: (payment as Record<string, unknown>).externalId as string || '',
         timestamp: new Date(),
       },
       status: 'active',
@@ -246,8 +248,8 @@ export async function POST(
       amount: bidAmount,
       timestamp: new Date(),
       txHash: transactionHash,
-      thinking: requestBody.thinking,
-      strategy: requestBody.strategy,
+      thinking: typeof requestBody.thinking === 'string' ? requestBody.thinking : undefined,
+      strategy: typeof requestBody.strategy === 'string' ? requestBody.strategy : undefined,
       reasoning: strategyReasoning || undefined,
     });
 
@@ -267,8 +269,8 @@ export async function POST(
             amount: bidRecord.currentBid,
             transactionHash: refundTxHash,
           });
-        } catch (error: any) {
-          console.error('❌ Refund failed:', error.message);
+        } catch (error: unknown) {
+          console.error('❌ Refund failed:', error instanceof Error ? error.message : String(error));
           // Retry once after a delay if it fails
           setTimeout(async () => {
             try {
@@ -282,8 +284,8 @@ export async function POST(
                 amount: bidRecord.currentBid,
                 transactionHash: refundTxHash,
               });
-            } catch (retryError: any) {
-              console.error('❌ Refund retry failed:', retryError.message);
+            } catch (retryError: unknown) {
+              console.error('❌ Refund retry failed:', retryError instanceof Error ? retryError.message : String(retryError));
             }
           }, 3000);
         }

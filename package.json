@@ -13,6 +13,7 @@
     "agent:ai:b": "tsx agents/intelligentAgentB.ts",
     "fund": "tsx fund-wallet.ts",
     "fund:agents": "tsx fund-agents.ts",
+    "balance": "tsx check-balance.ts",
     "clean:db": "tsx scripts/clean-db.ts"
   },
   "dependencies": {
@@ -31,6 +32,7 @@
     "viem": "^2.38.3",
     "x402": "^0.6.6",
     "x402-axios": "^0.6.6",
+    "x402-fetch": "^0.6.6",
     "x402-hono": "^0.6.5",
     "zod": "^4.1.12"
   },

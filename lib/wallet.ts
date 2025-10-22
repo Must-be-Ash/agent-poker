@@ -4,7 +4,7 @@ import { baseSepolia } from 'viem/chains';
 import { privateKeyToAccount } from 'viem/accounts';
 
 let cdp: CdpClient;
-let serverAccount: any;
+let serverAccount: Awaited<ReturnType<CdpClient['evm']['getAccount']>>;
 
 // ERC-20 ABI for transfer function
 const ERC20_ABI = [
@@ -70,9 +70,7 @@ export async function getServerWalletClient() {
   return walletClient;
 }
 
-export async function getWalletBalance(
-  network: 'base-sepolia' | 'base-mainnet' = 'base-sepolia'
-): Promise<{ eth: string; usdc: string }> {
+export async function getWalletBalance(): Promise<{ eth: string; usdc: string }> {
   const { serverAccount } = await initializeWallet();
 
   // Create public client to read balances

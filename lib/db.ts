@@ -67,7 +67,7 @@ export async function addBidToHistory(
 export async function storeEvent(
   basename: string,
   eventType: AuctionEvent['eventType'],
-  data: any
+  data: Record<string, unknown>
 ): Promise<number> {
   console.log(`📝 [EVENT] storeEvent called: ${eventType} for ${basename}`);
   console.log(`   Data:`, JSON.stringify(data));
@@ -86,7 +86,7 @@ export async function storeEvent(
   const event: Omit<AuctionEvent, '_id'> = {
     basename,
     eventType,
-    agentId: data.agentId,
+    agentId: typeof data.agentId === 'string' ? data.agentId : undefined,
     sequence,
     timestamp: new Date(),
     data,

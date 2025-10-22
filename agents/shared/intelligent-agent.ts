@@ -2,12 +2,12 @@ import axios from 'axios';
 import { withPaymentInterceptor } from 'x402-axios';
 import { createWalletClient, http, publicActions, createPublicClient } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
-import { baseSepolia } from 'viem/chains';
+import { baseSepolia, base } from 'viem/chains';
 import { Hex } from 'viem';
 import { Anthropic } from '@llamaindex/anthropic';
 import { FunctionTool } from 'llamaindex';
 import { agent } from '@llamaindex/workflow';
-import { z } from 'zod';
+import { wrapFetchWithPayment } from 'x402-fetch';
 
 const USDC_BASE_SEPOLIA = '0x036CbD53842c5426634e7929541eC2318f3dCF7e';
 
@@ -35,14 +35,6 @@ interface BidContext {
   lastRefundAmount?: number;
 }
 
-interface BidDecision {
-  thinking: string;
-  proposedAmount: number;
-  strategy: string;
-  reasoning: string;
-  confidence: number;
-}
-
 export class IntelligentBiddingAgent {
   private wallet;
   private axiosWithPayment;
@@ -53,19 +45,20 @@ export class IntelligentBiddingAgent {
   private publicClient;
   private monitoringInterval: NodeJS.Timeout | null = null;
   private llm;
-  private bot;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- LlamaIndex ReActAgent does not export proper TypeScript types
+  private bot: any;
   private bidHistory: BidContext['bidHistory'] = [];
   private lastRefundAmount?: number;
 
   constructor(config: {
     privateKey: Hex;
     agentName: string;
-    maxBid: number;
+    maxBid?: number; // Optional - agents can set dynamically after research
     serverUrl: string;
     anthropicApiKey: string;
   }) {
     this.agentName = config.agentName;
-    this.maxBid = config.maxBid;
+    this.maxBid = config.maxBid || 0; // Initialize to 0 if not provided
     this.serverUrl = config.serverUrl;
 
     // Create wallet client
@@ -86,6 +79,7 @@ export class IntelligentBiddingAgent {
       axios.create({
         headers: { 'X-Agent-ID': this.agentName }
       }),
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       this.wallet as any // Type assertion for viem version compatibility
     );
 
@@ -99,11 +93,19 @@ export class IntelligentBiddingAgent {
     console.log(`   Wallet: ${this.wallet.account.address}`);
   }
 
+  /**
+   * Set maximum bid budget (used when agents determine budget dynamically)
+   */
+  setMaxBid(amount: number) {
+    console.log(`💰 [${this.agentName}] Setting maximum budget to $${amount.toFixed(2)}`);
+    this.maxBid = amount;
+  }
+
   // Helper to emit events for frontend observability
-  private async emitEvent(basename: string, eventType: string, data: any) {
+  private async emitEvent(basename: string, eventType: string, data: Record<string, unknown>) {
     try {
       console.log(`📤 [${this.agentName}] Emitting event: ${eventType}`);
-      const response = await axios.post(
+      await axios.post(
         `${this.serverUrl}/api/events/${basename}/emit`,
         {
           eventType,
@@ -115,9 +117,10 @@ export class IntelligentBiddingAgent {
         }
       );
       console.log(`✅ [${this.agentName}] Event emitted successfully: ${eventType}`);
-    } catch (error: any) {
+    } catch (error: unknown) {
       // Non-critical, continue even if event emission fails
-      console.error(`⚠️ [${this.agentName}] Failed to emit event ${eventType}:`, error.message);
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      console.error(`⚠️ [${this.agentName}] Failed to emit event ${eventType}:`, errorMessage);
     }
   }
 
@@ -144,7 +147,7 @@ export class IntelligentBiddingAgent {
               result: { balance, maxBid: this.maxBid },
             });
           }
-        } catch (e) { /* ignore */ }
+        } catch { /* ignore */ }
 
         return JSON.stringify(result);
       },
@@ -195,9 +198,10 @@ export class IntelligentBiddingAgent {
           });
 
           return JSON.stringify(result);
-        } catch (error: any) {
-          console.error(`❌ [${this.agentName}] Failed to get auction state:`, error.message);
-          return JSON.stringify({ success: false, error: error.message });
+        } catch (error: unknown) {
+          const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+          console.error(`❌ [${this.agentName}] Failed to get auction state:`, errorMessage);
+          return JSON.stringify({ success: false, error: errorMessage });
         }
       },
       {
@@ -269,39 +273,43 @@ export class IntelligentBiddingAgent {
           }
 
           return JSON.stringify({ success: false, message: 'Bid failed' });
-        } catch (error: any) {
-          console.error(`❌ [${this.agentName}] Bid request error:`, error.message);
-          console.error(`   Status:`, error.response?.status);
-          console.error(`   Data:`, error.response?.data);
+        } catch (error: unknown) {
+          const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+          console.error(`❌ [${this.agentName}] Bid request error:`, errorMessage);
 
-          // Handle 400 Bad Request (proposal rejected as too low)
-          if (error.response?.status === 400) {
-            const rejection = error.response.data;
-            return JSON.stringify({
-              success: false,
-              proposalRejected: true,
-              yourProposal: rejection.negotiation?.yourProposal || null,
-              minimumRequired: rejection.negotiation?.minimumToWin || null,
-              currentBid: rejection.negotiation?.currentBid || null,
-              message: rejection.negotiation?.message || 'Proposal too low',
-              suggestion: rejection.negotiation?.suggestion || null,
-            });
+          if (axios.isAxiosError(error)) {
+            console.error(`   Status:`, error.response?.status);
+            console.error(`   Data:`, error.response?.data);
+
+            // Handle 400 Bad Request (proposal rejected as too low)
+            if (error.response?.status === 400) {
+              const rejection = error.response.data;
+              return JSON.stringify({
+                success: false,
+                proposalRejected: true,
+                yourProposal: rejection.negotiation?.yourProposal || null,
+                minimumRequired: rejection.negotiation?.minimumToWin || null,
+                currentBid: rejection.negotiation?.currentBid || null,
+                message: rejection.negotiation?.message || 'Proposal too low',
+                suggestion: rejection.negotiation?.suggestion || null,
+              });
+            }
+
+            // Handle 402 Payment Required (needs payment)
+            if (error.response?.status === 402) {
+              const paymentReq = error.response.data;
+              return JSON.stringify({
+                success: false,
+                needsNegotiation: true,
+                minimumRequired: paymentReq.negotiation?.minimumToWin || null,
+                currentBid: paymentReq.negotiation?.currentBid || null,
+                message: paymentReq.negotiation?.message || 'Negotiation required',
+                suggestion: paymentReq.negotiation?.suggestion || null,
+              });
+            }
           }
 
-          // Handle 402 Payment Required (needs payment)
-          if (error.response?.status === 402) {
-            const paymentReq = error.response.data;
-            return JSON.stringify({
-              success: false,
-              needsNegotiation: true,
-              minimumRequired: paymentReq.negotiation?.minimumToWin || null,
-              currentBid: paymentReq.negotiation?.currentBid || null,
-              message: paymentReq.negotiation?.message || 'Negotiation required',
-              suggestion: paymentReq.negotiation?.suggestion || null,
-            });
-          }
-
-          return JSON.stringify({ success: false, message: error.message });
+          return JSON.stringify({ success: false, message: errorMessage });
         }
       },
       {
@@ -361,11 +369,14 @@ export class IntelligentBiddingAgent {
             message: response.data.message,
             auctionEnded: response.data.auctionEnded,
           });
-        } catch (error: any) {
-          console.error(`❌ [${this.agentName}] Withdrawal failed:`, error.response?.data?.error || error.message);
+        } catch (error: unknown) {
+          const errorMessage = axios.isAxiosError(error)
+            ? (error.response?.data?.error || error.message)
+            : (error instanceof Error ? error.message : 'Unknown error');
+          console.error(`❌ [${this.agentName}] Withdrawal failed:`, errorMessage);
           return JSON.stringify({
             success: false,
-            error: error.response?.data?.error || error.message,
+            error: errorMessage,
           });
         }
       },
@@ -389,9 +400,202 @@ export class IntelligentBiddingAgent {
       }
     );
 
+    const searchWebTool = FunctionTool.from(
+      async (input: { query: string; limit?: number }) => {
+        try {
+          console.log(`\n🔍 [${this.agentName}] Searching web for: "${input.query}"`);
+
+          const privateKey = process.env.AGENT_A_PRIVATE_KEY || process.env.AGENT_B_PRIVATE_KEY;
+          if (!privateKey) {
+            return JSON.stringify({
+              success: false,
+              error: 'Private key not configured',
+            });
+          }
+
+          const account = privateKeyToAccount(privateKey as `0x${string}`);
+
+          // Create wallet client for x402 payments (use Base mainnet for Firecrawl)
+          const walletClient = createWalletClient({
+            account,
+            chain: base,
+            transport: http()
+          }).extend(publicActions);
+
+          // Wrap fetch with x402 payment handling
+          const fetchWithPayment = wrapFetchWithPayment(
+            fetch,
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            walletClient as any,
+            BigInt(0.02 * 10 ** 6) // Firecrawl costs $0.01, small buffer for safety
+          );
+
+          // Emit Firecrawl 402 call event
+          const basename = process.env.BASENAME_TO_AUCTION;
+          if (basename) {
+            await this.emitEvent(basename, 'firecrawl_402_call', {
+              query: input.query,
+              cost: 0.01,
+              endpoint: 'https://api.firecrawl.dev/v2/x402/search',
+            });
+          }
+
+          // Call Firecrawl search API (v2 endpoint)
+          const response = await fetchWithPayment('https://api.firecrawl.dev/v2/x402/search', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${process.env.BID_FIRECRAWL_API_KEY}`,
+            },
+            body: JSON.stringify({
+              query: input.query,
+              limit: Math.min(input.limit || 10, 10),
+              sources: ['web']
+            })
+          });
+
+          if (!response.ok) {
+            const errorText = await response.text();
+            console.error(`❌ [${this.agentName}] Firecrawl API error:`, response.status, errorText);
+            return JSON.stringify({
+              success: false,
+              error: `Firecrawl API error: ${response.status}`,
+            });
+          }
+
+          const result = await response.json();
+          const articles = result.data?.web || [];
+
+          console.log(`✅ [${this.agentName}] Found ${articles.length} results`);
+
+          // Return simplified results
+          const searchResults = articles.slice(0, 5).map((article: { title?: string; description?: string; url?: string }) => ({
+            title: article.title,
+            description: article.description,
+            url: article.url,
+          }));
+
+          // Emit search results event with actual data
+          if (basename) {
+            await this.emitEvent(basename, 'firecrawl_results', {
+              query: input.query,
+              results: searchResults,
+              totalResults: articles.length,
+            });
+          }
+
+          return JSON.stringify({
+            success: true,
+            query: input.query,
+            results: searchResults,
+            totalResults: articles.length,
+          });
+
+        } catch (error: unknown) {
+          const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+          console.error(`❌ [${this.agentName}] Search failed:`, errorMessage);
+          return JSON.stringify({
+            success: false,
+            error: errorMessage,
+          });
+        }
+      },
+      {
+        name: 'search_web',
+        description: 'Search the web for information using Firecrawl. Use this to research the value, popularity, or market data about basenames or topics. Returns web search results with titles, descriptions, and URLs. This helps you make informed decisions about how much to budget for the auction.',
+        parameters: {
+          type: 'object',
+          properties: {
+            query: {
+              type: 'string',
+              description: 'The search query (e.g., "x402agent.base.eth value", "basename sales history")',
+            },
+            limit: {
+              type: 'number',
+              description: 'Maximum number of results (1-10, default 10)',
+            },
+          },
+          required: ['query'],
+        },
+      }
+    );
+
+    const setBudgetTool = FunctionTool.from(
+      async (input: { amount: number; reasoning: string }) => {
+        try {
+          // Get current balance to validate budget
+          const currentBalance = await this.getUSDCBalance();
+
+          // Validate budget constraints
+          if (input.amount < 0.01) {
+            return JSON.stringify({
+              success: false,
+              error: 'Budget must be at least $0.01',
+            });
+          }
+
+          if (input.amount > currentBalance) {
+            return JSON.stringify({
+              success: false,
+              error: `Budget of $${input.amount.toFixed(2)} exceeds your available balance of $${currentBalance.toFixed(2)}`,
+            });
+          }
+
+          console.log(`\n💰 [${this.agentName}] Setting budget to $${input.amount.toFixed(2)}`);
+          console.log(`📝 [${this.agentName}] Reasoning: ${input.reasoning}`);
+          console.log(`💵 [${this.agentName}] Available balance: $${currentBalance.toFixed(2)}`);
+
+          this.setMaxBid(input.amount);
+
+          // Emit budget set event
+          const basename = process.env.BASENAME_TO_AUCTION;
+          if (basename) {
+            await this.emitEvent(basename, 'budget_determined', {
+              amount: input.amount,
+              reasoning: input.reasoning,
+              availableBalance: currentBalance,
+            });
+          }
+
+          return JSON.stringify({
+            success: true,
+            message: `Budget set to $${input.amount.toFixed(2)} (${((input.amount / currentBalance) * 100).toFixed(1)}% of your balance)`,
+            maxBid: this.maxBid,
+            availableBalance: currentBalance,
+          });
+
+        } catch (error: unknown) {
+          const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+          console.error(`❌ [${this.agentName}] Failed to set budget:`, errorMessage);
+          return JSON.stringify({
+            success: false,
+            error: errorMessage,
+          });
+        }
+      },
+      {
+        name: 'set_budget',
+        description: 'Set your maximum budget for the auction after researching the basename\'s value. You must call this tool after using search_web to determine how much you are willing to spend. Your budget can be anywhere from $0.01 up to your full available balance. Consider the basename\'s perceived value when setting your budget - highly valuable names like "coinbase.base.eth" or "1.base.eth" may justify allocating most or all of your balance, while less valuable names may warrant only a small portion.',
+        parameters: {
+          type: 'object',
+          properties: {
+            amount: {
+              type: 'number',
+              description: 'The maximum amount you are willing to bid (minimum $0.01, up to your available balance). Base this on your research of the basename\'s value.',
+            },
+            reasoning: {
+              type: 'string',
+              description: 'Your reasoning for choosing this budget based on your research',
+            },
+          },
+          required: ['amount', 'reasoning'],
+        },
+      }
+    );
+
     return agent({
       llm: this.llm,
-      tools: [getBalanceTool, getAuctionStateTool, placeBidTool, withdrawFromAuctionTool],
+      tools: [getBalanceTool, getAuctionStateTool, placeBidTool, withdrawFromAuctionTool, searchWebTool, setBudgetTool],
     });
   }
 
@@ -427,6 +631,8 @@ export class IntelligentBiddingAgent {
       console.log(`🔄 [${this.agentName}] Creating fresh agent instance for evaluation...`);
       const bot = this.createAgent();
 
+      const budgetDetermined = this.maxBid > 0;
+
       const prompt = `You are ${this.agentName}, an autonomous bidding agent competing for the basename "${basename}".
 
 ⚠️ CRITICAL REQUIREMENTS - READ CAREFULLY:
@@ -438,12 +644,24 @@ export class IntelligentBiddingAgent {
 Your Goal: Win the basename while spending as little as possible. Be strategic and competitive.
 
 Your Constraints:
-- Maximum budget: $${this.maxBid.toFixed(2)}
+- ${budgetDetermined ? `Maximum budget: $${this.maxBid.toFixed(2)}` : 'Budget: Not yet determined - you will research and set your own budget'}
 - Current balance: $${balance.toFixed(2)}
 
 REQUIRED EXECUTION STEPS (follow in order):
 
-Step 1: CALL get_auction_state tool
+${!budgetDetermined ? `Phase 1: RESEARCH & BUDGET DETERMINATION
+- CALL search_web tool to research the basename's value, popularity, and market data
+- Search for: "${basename} value", "basename sales", or similar queries
+- Analyze the search results to understand what this basename is worth
+- Consider: Is this a premium name (short, memorable, brandable) or a generic/random name?
+- Based on your research, CALL set_budget tool to set your maximum budget (from $0.01 up to your full balance of $${balance.toFixed(2)})
+- Your budget should reflect the basename's perceived value:
+  * Premium names (e.g., "nike.base.eth", "1.base.eth") may justify 50-100% of your balance
+  * Moderate names may justify 20-50% of your balance
+  * Generic/random names may only warrant 1-10% of your balance
+- You MUST set your budget before proceeding to bidding
+
+` : ''}Step 1: CALL get_auction_state tool
 - You MUST execute this tool to get current auction data
 - DO NOT guess or assume what the response will be
 
@@ -455,7 +673,7 @@ Step 3: Analyze the situation
 - What's the current bid?
 - Who's winning?
 - What's the bidding pattern?
-- How does this compare to your budget?
+${budgetDetermined ? '- How does this compare to your budget?' : '- How does this compare to your researched budget?'}
 
 Step 4: MAKE YOUR DECISION (you MUST choose ONE):
 
@@ -463,6 +681,7 @@ Option A: Place a bid
 - CALL the place_bid tool with your chosen amount and reasoning
 - The tool will handle the actual blockchain transaction
 - You can bid conservatively OR aggressively based on your strategy
+${!budgetDetermined ? '- Ensure your bid stays within your researched budget' : ''}
 
 Option B: Withdraw from auction
 - If the current bid exceeds your budget or you decide not to compete
@@ -475,6 +694,7 @@ Strategic tips (be creative with your bidding):
 - Conservative: Bid just above the minimum to save budget
 - Aggressive: Jump high to intimidate competitors
 - Tactical: Wait and observe patterns before committing
+${!budgetDetermined ? '- Research-driven: Use web search to make informed budget decisions' : ''}
 
 REMEMBER: You MUST actually execute the tools and take action. This is a real auction with real consequences!`;
 
@@ -490,7 +710,7 @@ REMEMBER: You MUST actually execute the tools and take action. This is a real au
             timestamp: new Date().toISOString(),
           }
         );
-      } catch (error) {
+      } catch {
         // Non-critical, continue even if this fails
       }
 
@@ -514,19 +734,21 @@ REMEMBER: You MUST actually execute the tools and take action. This is a real au
             }
           );
           console.log(`📝 [${this.agentName}] Reflection submitted to server`);
-        } catch (error: any) {
-          console.error(`❌ [${this.agentName}] Failed to submit reflection:`, error.message);
+        } catch (error: unknown) {
+          const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+          console.error(`❌ [${this.agentName}] Failed to submit reflection:`, errorMessage);
         }
       }
 
       // Start monitoring for refunds after evaluation
       this.startRefundMonitoring(basename);
 
-    } catch (error: any) {
-      console.error(`❌ [${this.agentName}] AI reasoning error:`, error.message);
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      console.error(`❌ [${this.agentName}] AI reasoning error:`, errorMessage);
 
       // Fallback to simple bid if AI fails
-      if (error.response?.status === 410) {
+      if (axios.isAxiosError(error) && error.response?.status === 410) {
         console.log(`🏁 [${this.agentName}] Auction ended`);
         this.isActive = false;
         this.stopRefundMonitoring();

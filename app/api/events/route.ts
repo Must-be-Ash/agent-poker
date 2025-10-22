@@ -14,7 +14,7 @@ export async function GET(request: NextRequest) {
   const stream = new ReadableStream({
     async start(controller) {
       // Send SSE headers
-      const sendEvent = (event: string, data: any) => {
+      const sendEvent = (event: string, data: Record<string, unknown>) => {
         const message = `event: ${event}\ndata: ${JSON.stringify(data)}\n\n`;
         controller.enqueue(encoder.encode(message));
       };

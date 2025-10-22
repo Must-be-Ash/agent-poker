@@ -53,11 +53,14 @@ export class BiddingAgent {
     });
 
     // Create axios client with x402 payment interceptor
+    // Note: Type assertion required due to viem/x402-axios type incompatibility
+    // x402-axios expects a different wallet interface than viem provides
     this.axiosWithPayment = withPaymentInterceptor(
       axios.create({
         headers: { 'X-Agent-ID': this.agentName }
       }),
-      this.wallet
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- viem wallet client type incompatible with x402-axios expected type
+      this.wallet as any
     );
 
     console.log(`🤖 ${this.agentName} initialized`);
@@ -110,17 +113,22 @@ export class BiddingAgent {
 
       return false;
 
-    } catch (error: any) {
-      if (error.response?.status === 402) {
-        console.log(`💳 [${this.agentName}] 402 Payment Required, x402-axios will handle payment...`);
-        // x402-axios interceptor will automatically handle payment and retry
-      } else if (error.response?.status === 410) {
-        console.log(`🏁 [${this.agentName}] Auction ended, stopping agent.`);
-        this.isActive = false;
-        this.stopRefundMonitoring();
-        return false;
+    } catch (error: unknown) {
+      if (axios.isAxiosError(error)) {
+        if (error.response?.status === 402) {
+          console.log(`💳 [${this.agentName}] 402 Payment Required, x402-axios will handle payment...`);
+          // x402-axios interceptor will automatically handle payment and retry
+        } else if (error.response?.status === 410) {
+          console.log(`🏁 [${this.agentName}] Auction ended, stopping agent.`);
+          this.isActive = false;
+          this.stopRefundMonitoring();
+          return false;
+        } else {
+          console.error(`❌ [${this.agentName}] Error:`, error.message);
+        }
       } else {
-        console.error(`❌ [${this.agentName}] Error:`, error.message);
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+        console.error(`❌ [${this.agentName}] Error:`, errorMessage);
       }
       return false;
     }

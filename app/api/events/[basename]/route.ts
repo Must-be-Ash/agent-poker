@@ -28,7 +28,7 @@ export async function GET(
       })),
       count: events.length,
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error fetching events:', error);
     return NextResponse.json(
       { error: 'Failed to fetch events' },

@@ -34,7 +34,7 @@ export async function POST(
 
     console.log(`✅ [EMIT API] Event stored successfully`);
     return NextResponse.json({ success: true });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('❌ [EMIT API] Error emitting event:', error);
     return NextResponse.json(
       { error: 'Failed to emit event' },

@@ -66,10 +66,13 @@ export interface AuctionEvent {
     | 'refund_issued'
     | 'withdrawal_decision'
     | 'auction_ended'
-    | 'agent_status';
+    | 'agent_status'
+    | 'firecrawl_402_call'
+    | 'firecrawl_results'
+    | 'budget_determined';
   agentId?: string;
   sequence: number;
   timestamp: Date;
-  data: any;
+  data: Record<string, unknown>;
   createdAt: Date;
 }

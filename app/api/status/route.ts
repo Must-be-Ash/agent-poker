@@ -35,8 +35,8 @@ export async function GET(request: NextRequest) {
         reflection: bid.reflection,
       })),
     });
-  } catch (error: any) {
-    console.error('Error fetching auction status:', error);
+  } catch (error: unknown) {
+    console.error('Error fetching auction status:', error instanceof Error ? error.message : String(error));
     return NextResponse.json(
       { error: 'Failed to fetch auction status' },
       { status: 500 }

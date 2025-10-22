@@ -117,10 +117,10 @@ export async function POST(
         : 'Refund issued. You have withdrawn from the auction.',
     });
 
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error(`❌ Refund request failed:`, error);
     return NextResponse.json(
-      { error: `Failed to process refund: ${error.message}` },
+      { error: `Failed to process refund: ${error instanceof Error ? error.message : String(error)}` },
       { status: 500 }
     );
   }

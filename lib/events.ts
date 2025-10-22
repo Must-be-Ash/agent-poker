@@ -9,7 +9,7 @@ import type { AuctionEvent } from '@/types';
 export async function storeEvent(
   basename: string,
   eventType: AuctionEvent['eventType'],
-  data: any
+  data: Record<string, unknown>
 ): Promise<void> {
   console.log(`🔵 [EVENTS] storeEvent wrapper called: ${eventType}`);
   try {

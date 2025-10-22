@@ -7,6 +7,7 @@ interface AuctionMessage {
   eventType: string;
   agentId?: string;
   timestamp: Date;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   data: any;
 }
 
@@ -35,11 +36,11 @@ export default function AuctionPagePolling({ params }: { params: Promise<{ basen
 
         if (data.events && data.events.length > 0) {
           setMessages(prev => [...prev, ...data.events]);
-          const maxSeq = Math.max(...data.events.map((e: any) => e.sequence));
+          const maxSeq = Math.max(...data.events.map((e: { sequence: number }) => e.sequence));
           setLastSequence(maxSeq);
 
           // Update current bid and winner
-          data.events.forEach((event: any) => {
+          data.events.forEach((event: { eventType: string; data: { amount: number }; agentId: string }) => {
             if (event.eventType === 'bid_placed') {
               setCurrentBid(event.data.amount);
               setCurrentWinner(event.agentId);
@@ -83,7 +84,7 @@ export default function AuctionPagePolling({ params }: { params: Promise<{ basen
     );
   };
 
-  const renderEvent = (event: AuctionMessage, idx: number) => {
+  const renderEvent = (event: AuctionMessage) => {
     const { eventType, agentId, data } = event;
     const isAgentA = agentId === 'AgentA';
 
@@ -207,6 +208,88 @@ export default function AuctionPagePolling({ params }: { params: Promise<{ basen
               </div>
             )}
 
+            {eventType === 'firecrawl_402_call' && (
+              <div
+                className={`rounded-2xl px-4 py-3 bg-[#2a2a2a] border border-[#444444] ${
+                  isAgentA ? 'rounded-tl-sm' : 'rounded-tr-sm'
+                }`}
+              >
+                <div className="text-[#888888] text-xs mb-2 flex items-center gap-2">
+                  <span>🔍</span>
+                  <span>Researching with Firecrawl (402 payment)</span>
+                </div>
+                <div className="text-[#aaaaaa] text-xs font-mono mb-1">
+                  Query: &quot;{data.query}&quot;
+                </div>
+                <div className="text-[#aaaaaa] text-xs">
+                  💳 Paid $0.01 USDC for Firecrawl search
+                </div>
+              </div>
+            )}
+
+            {eventType === 'firecrawl_results' && data.results && (
+              <div
+                className={`rounded-2xl px-4 py-3 mb-6 bg-[#2a2a2a] border border-[#444444] ${
+                  isAgentA ? 'rounded-tl-sm' : 'rounded-tr-sm'
+                }`}
+              >
+                <div className="text-[#aaaaaa] text-xs mb-2 flex items-center gap-2">
+                  <span>📰</span>
+                  <span>Found {data.totalResults} result{data.totalResults !== 1 ? 's' : ''}</span>
+                </div>
+                <div className="space-y-2 mt-2">
+                  {data.results.slice(0, 3).map((article: { title?: string; url?: string; description?: string }, i: number) => (
+                    <div key={i} className="bg-[#333333] rounded-lg p-2">
+                      <div className="text-[#cccccc] text-xs font-semibold leading-tight">
+                        {article.title || 'No title'}
+                      </div>
+                      {article.description && (
+                        <div className="text-[#888888] text-xs mt-1 leading-tight line-clamp-2">
+                          {article.description}
+                        </div>
+                      )}
+                      {article.url && (
+                        <a
+                          href={article.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-[#666666] hover:text-[#888888] text-xs underline mt-1 inline-block"
+                        >
+                          Read more →
+                        </a>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {eventType === 'budget_determined' && (
+              <div
+                className={`rounded-2xl px-4 py-3 bg-[#333333] border border-[#555555] ${
+                  isAgentA ? 'rounded-tl-sm' : 'rounded-tr-sm'
+                }`}
+              >
+                <div className="text-[#aaaaaa] text-xs mb-2 flex items-center gap-2">
+                  <span>💰</span>
+                  <span>Budget Set</span>
+                </div>
+                <div className="text-[#ffffff] text-xl font-bold mb-2">
+                  ${data.amount?.toFixed(2)} USDC
+                </div>
+                {data.availableBalance && (
+                  <div className="text-[#888888] text-xs mb-2">
+                    {((data.amount / data.availableBalance) * 100).toFixed(0)}% of balance (${data.availableBalance.toFixed(2)})
+                  </div>
+                )}
+                {data.reasoning && (
+                  <div className="text-[#aaaaaa] text-xs mt-2 italic leading-relaxed">
+                    &quot;{data.reasoning}&quot;
+                  </div>
+                )}
+              </div>
+            )}
+
             {eventType === 'agent_thinking' && data.thinking && (
               <div
                 className={`rounded-2xl px-4 py-3 bg-[#2a2a2a] border border-[#444444] ${
@@ -218,7 +301,7 @@ export default function AuctionPagePolling({ params }: { params: Promise<{ basen
                   <span>Thinking...</span>
                 </div>
                 <div className="text-[#cccccc] text-sm italic">
-                  "{data.thinking}"
+                  &quot;{data.thinking}&quot;
                 </div>
                 {data.proposedAmount && (
                   <div className="text-[#888888] text-xs mt-2">
@@ -304,7 +387,8 @@ export default function AuctionPagePolling({ params }: { params: Promise<{ basen
 
             {/* Fallback for any unhandled event types */}
             {!['agent_evaluation_start', 'agent_tool_call', 'agent_thinking', 'bid_placed', 
-                'post_bid_analysis', 'refund_detected', '402_call_initiated', '402_response_received'].includes(eventType) && (
+                'post_bid_analysis', 'refund_detected', '402_call_initiated', '402_response_received', 
+                'budget_determined', 'firecrawl_402_call'].includes(eventType) && (
               <div
                 className={`rounded-2xl px-4 py-2 bg-[#2a2a2a] border border-[#444444] ${
                   isAgentA ? 'rounded-tl-sm' : 'rounded-tr-sm'
@@ -412,7 +496,7 @@ export default function AuctionPagePolling({ params }: { params: Promise<{ basen
               <p>Waiting for agents to start bidding...</p>
             </div>
           ) : (
-            messages.map((event, idx) => renderEvent(event, idx)).filter(Boolean)
+            messages.map((event) => renderEvent(event)).filter(Boolean)
           )}
           <div ref={messagesEndRef} />
         </div>
