@@ -405,15 +405,8 @@ export class IntelligentBiddingAgent {
         try {
           console.log(`\n🔍 [${this.agentName}] Searching web for: "${input.query}"`);
 
-          const privateKey = process.env.AGENT_A_PRIVATE_KEY || process.env.AGENT_B_PRIVATE_KEY;
-          if (!privateKey) {
-            return JSON.stringify({
-              success: false,
-              error: 'Private key not configured',
-            });
-          }
-
-          const account = privateKeyToAccount(privateKey as `0x${string}`);
+          // Use this agent's own private key (from wallet.account) for Firecrawl payments
+          const account = this.wallet.account;
 
           // Create wallet client for x402 payments (use Base mainnet for Firecrawl)
           const walletClient = createWalletClient({
