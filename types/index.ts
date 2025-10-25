@@ -73,6 +73,8 @@ export interface AuctionEvent {
     | 'refund_issued'
     | 'withdrawal_decision'
     | 'auction_ended'
+    | 'basename_transferred'
+    | 'basename_transfer_failed'
     | 'agent_status'
     | 'firecrawl_402_call'
     | 'firecrawl_results'

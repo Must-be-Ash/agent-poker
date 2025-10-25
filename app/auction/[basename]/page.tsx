@@ -95,7 +95,7 @@ export default function AuctionPagePolling({ params }: { params: Promise<{ basen
     }
 
     // Server/system events - centered
-    if (eventType === 'refund_issued' || eventType === 'withdrawal_decision' || eventType === 'auction_ended') {
+    if (eventType === 'refund_issued' || eventType === 'withdrawal_decision' || eventType === 'auction_ended' || eventType === 'basename_transferred' || eventType === 'basename_transfer_failed') {
       if (eventType === 'refund_issued') {
         return (
           <div key={`${event.sequence}-${event.eventType}-${new Date(event.timestamp).getTime()}`} className="flex justify-center my-6">
@@ -154,6 +154,53 @@ export default function AuctionPagePolling({ params }: { params: Promise<{ basen
               </div>
               <div className="text-[#888888] text-xs mt-1">
                 Final Bid: ${data.finalBid?.toFixed(2)} USDC
+              </div>
+            </div>
+          </div>
+        );
+      }
+
+      if (eventType === 'basename_transferred') {
+        return (
+          <div key={`${event.sequence}-${event.eventType}-${new Date(event.timestamp).getTime()}`} className="flex justify-center my-6">
+            <div className="bg-[#1e3a1e] border border-[#2d5a2d] rounded-lg px-6 py-4 max-w-md text-center">
+              <div className="text-4xl mb-3">🎉</div>
+              <div className="text-[#90ee90] text-xl font-bold mb-2">Basename Transferred!</div>
+              <div className="text-[#cccccc] text-sm mb-2">
+                <span className="font-mono text-xs bg-[#2a2a2a] px-2 py-1 rounded">{data.basename}</span>
+              </div>
+              <div className="text-[#888888] text-xs">
+                Transferred to <span className="font-semibold">{data.winner?.agentId}</span>
+              </div>
+              {data.transactionHash && (
+                <a
+                  href={`https://basescan.org/tx/${data.transactionHash}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-[#90ee90] hover:text-[#70ce70] text-xs underline mt-2 block"
+                >
+                  View on Basescan →
+                </a>
+              )}
+            </div>
+          </div>
+        );
+      }
+
+      if (eventType === 'basename_transfer_failed') {
+        return (
+          <div key={`${event.sequence}-${event.eventType}-${new Date(event.timestamp).getTime()}`} className="flex justify-center my-6">
+            <div className="bg-[#3a1e1e] border border-[#5a2d2d] rounded-lg px-6 py-4 max-w-md text-center">
+              <div className="text-4xl mb-3">⚠️</div>
+              <div className="text-[#ee9090] text-xl font-bold mb-2">Transfer Pending</div>
+              <div className="text-[#cccccc] text-sm mb-2">
+                Basename transfer failed - manual retry required
+              </div>
+              <div className="text-[#888888] text-xs mt-1">
+                Winner: <span className="font-semibold">{data.winner?.agentId}</span>
+              </div>
+              <div className="text-[#888888] text-xs mt-2 italic">
+                {data.error?.substring(0, 100)}
               </div>
             </div>
           </div>

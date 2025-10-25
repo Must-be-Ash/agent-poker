@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getBidRecord, updateBidRecord, markAgentAsWithdrawn, addOrUpdateParticipatingAgent } from '@/lib/db';
-import { sendRefund } from '@/lib/wallet';
+import { sendRefund, transferBasename } from '@/lib/wallet';
 import { broadcastEvent } from '@/lib/events';
 
 export async function POST(
@@ -113,6 +113,44 @@ export async function POST(
           auctionEnded: true,
           auctionEndReason: 'withdrawal',
         });
+
+        // Attempt to transfer Basename to winner
+        if (updatedBidRecord.currentWinner) {
+          console.log(`🏷️  Attempting to transfer Basename to winner...`);
+          try {
+            const transferTxHash = await transferBasename(
+              basename,
+              updatedBidRecord.currentWinner.walletAddress
+            );
+
+            console.log(`✅ Basename transferred successfully! Tx: ${transferTxHash}`);
+
+            // Mark auction as finalized with transfer tx hash
+            await updateBidRecord(basename, {
+              status: 'finalized',
+              basenameTransferTxHash: transferTxHash,
+            });
+
+            await broadcastEvent(basename, 'basename_transferred', {
+              winner: updatedBidRecord.currentWinner,
+              transactionHash: transferTxHash,
+              basename,
+            });
+
+          } catch (error: unknown) {
+            console.error(`❌ Basename transfer failed:`, error);
+
+            // Auction ended but transfer failed - keep status as 'ended' (not 'finalized')
+            // This allows manual retry later
+            await broadcastEvent(basename, 'basename_transfer_failed', {
+              winner: updatedBidRecord.currentWinner,
+              error: error instanceof Error ? error.message : String(error),
+              basename,
+            });
+
+            console.log(`⚠️  Auction ended but Basename transfer failed. Manual retry required.`);
+          }
+        }
       } else {
         // Case 2: No bids yet - auction continues, next bid from remaining agent will continue normally
         console.log(`ℹ️ Only 1 active participant remaining, but no bids yet`);
@@ -120,13 +158,21 @@ export async function POST(
       }
     }
 
+    // Check if basename was transferred
+    const finalBidRecord = await getBidRecord(basename);
+    const basenameTransferred = finalBidRecord?.status === 'finalized';
+
     return NextResponse.json({
       success: true,
       refunded: refundAmount,
       transactionHash: refundTxHash,
       auctionEnded: auctionShouldEnd && updatedBidRecord.currentBid > 0,
+      basenameTransferred,
+      basenameTransferTxHash: finalBidRecord?.basenameTransferTxHash,
       message: auctionShouldEnd && updatedBidRecord.currentBid > 0
-        ? 'Withdrawal successful. Auction has ended - opponent won!'
+        ? basenameTransferred
+          ? 'Withdrawal successful. Auction has ended and Basename transferred to winner!'
+          : 'Withdrawal successful. Auction has ended - Basename transfer pending.'
         : hasBids
         ? `Refund of ${refundAmount} USDC issued. You have withdrawn from the auction.`
         : 'Withdrawal successful. You have been removed from the auction.',
