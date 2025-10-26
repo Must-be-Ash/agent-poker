@@ -47,22 +47,25 @@ Build the fundamental poker game logic independent of AI or payments.
 
 #### Tasks
 
-- [ ] **1.1: Create poker types**
+- [x] **1.1: Create poker types**
   - File: `types/poker.ts`
   - Define: `Card`, `HandRank`, `PokerAction`, `Player`, `GameState`
   - Include betting round states: `preflop`, `flop`, `turn`, `river`
+  - ✅ Completed: Comprehensive type definitions including Card, HandRank, PokerAction, Player, GameState, and more
 
-- [ ] **1.2: Implement card utilities**
+- [x] **1.2: Implement card utilities**
   - File: `lib/poker/cards.ts`
   - Functions: `createDeck()`, `shuffleDeck()`, `dealCards()`
   - Use cryptographically secure randomization
+  - ✅ Completed: Full card utilities with Fisher-Yates shuffle, crypto.getRandomValues(), deal functions, and helper utilities
 
-- [ ] **1.3: Implement hand evaluator**
+- [x] **1.3: Implement hand evaluator**
   - File: `lib/poker/hand-evaluator.ts`
   - Function: `evaluateHand(cards: Card[]): HandRank`
   - Rankings: Royal Flush → High Card
   - Return comparable strength values
   - **Recommendation**: Use existing library like `pokersolver` or `phe` (Poker Hand Evaluator)
+  - ✅ Completed: Installed pokersolver, created wrapper with evaluateHand(), compareHands(), determineWinners(), and helper functions
 
 - [ ] **1.4: Create game state manager**
   - File: `lib/poker/game-state.ts`
