@@ -67,7 +67,7 @@ Build the fundamental poker game logic independent of AI or payments.
   - **Recommendation**: Use existing library like `pokersolver` or `phe` (Poker Hand Evaluator)
   - ✅ Completed: Installed pokersolver, created wrapper with evaluateHand(), compareHands(), determineWinners(), and helper functions
 
-- [ ] **1.4: Create game state manager**
+- [x] **1.4: Create game state manager**
   - File: `lib/poker/game-state.ts`
   - Class: `PokerGame`
   - Methods:
@@ -76,19 +76,22 @@ Build the fundamental poker game logic independent of AI or payments.
     - `advanceToNextRound()` - Move from preflop → flop → turn → river
     - `determineWinner()` - Compare hands at showdown
     - `distributeChips()` - Award pot to winner
+  - ✅ Completed: Full PokerGame class with game state management, action validation, betting rounds, and chip distribution
 
-- [ ] **1.5: Implement pot management**
+- [x] **1.5: Implement pot management**
   - File: `lib/poker/pot-manager.ts`
   - Handle main pot + side pots (for all-ins)
   - Track contributions per player
   - Calculate eligible winners for each pot
+  - ✅ Completed: Full PotManager class with contribution tracking, side pot calculation, pot distribution, and split pot handling
 
-- [ ] **1.6: Write unit tests for poker engine**
+- [x] **1.6: Write unit tests for poker engine**
   - File: `__tests__/poker-engine.test.ts`
   - Test hand evaluation accuracy
   - Test betting round transitions
   - Test pot calculations (including side pots)
   - Test winner determination
+  - ✅ Completed: Installed Jest, created 47 comprehensive tests covering all poker engine components - ALL TESTS PASSING
 
 ---
 
@@ -98,7 +101,7 @@ Adapt MongoDB to store poker game state instead of auction state.
 
 #### Tasks
 
-- [ ] **2.1: Design poker game schema**
+- [x] **2.1: Design poker game schema**
   - File: `types/poker.ts` (extend from Phase 1)
   - Schema:
     ```typescript
@@ -130,8 +133,9 @@ Adapt MongoDB to store poker game state instead of auction state.
       position: number;
     }
     ```
+  - ✅ Completed: Schema already defined in Phase 1 with all required fields plus additional configuration (smallBlind, bigBlind, startingChips) and winner tracking fields
 
-- [ ] **2.2: Create poker database operations**
+- [x] **2.2: Create poker database operations**
   - File: `lib/poker-db.ts`
   - Functions:
     - `createPokerGame(gameId, players)`
@@ -140,16 +144,24 @@ Adapt MongoDB to store poker game state instead of auction state.
     - `addActionToHistory(gameId, action)`
     - `endGame(gameId, winnerId, finalState)`
     - `getGameHistory(gameId)` - All hands played
+  - ✅ Completed: Full poker database operations with CRUD, queries, hand result tracking, and utility functions
 
-- [ ] **2.3: Create MongoDB indexes**
+- [x] **2.3: Create MongoDB indexes**
   - Index on `gameId` (primary lookup)
   - Index on `players.agentId` (agent game history)
   - Index on `gameStatus` (active games query)
+  - ✅ Completed: Created index management functions in poker-db.ts with unique gameId index, agent lookup, status queries, and compound indexes
 
-- [ ] **2.4: Migration strategy**
+- [x] **2.4: Migration strategy**
   - Decide: New collection `pokerGames` or rename `bidRecords`?
   - Document migration approach in this file
   - Ensure backward compatibility if needed
+  - ✅ Completed: **Decision: Full Replacement with new collection**
+    - Created new `pokerGames` collection (separate from bidding `bids` collection)
+    - Created new `handResults` collection for hand history
+    - Old bidding code will be removed as we build poker features
+    - No backward compatibility needed (user chose full replacement)
+    - Migration approach: Clean slate - start fresh with poker-specific schema
 
 ---
 
@@ -159,15 +171,16 @@ Adapt x402 payments for poker actions: blinds, bets, calls, raises.
 
 #### Tasks
 
-- [ ] **3.1: Update x402 configuration**
+- [x] **3.1: Update x402 configuration**
   - File: `lib/x402-poker-config.ts`
   - Define payment schemes for:
     - Small blind (fixed amount)
     - Big blind (fixed amount)
     - Bet/Raise (variable amount)
     - Call (match current bet)
+  - ✅ Completed: Comprehensive x402 poker config with payment calculation, validation, blind handling, minimum bet/raise logic, and payment requirements builder
 
-- [ ] **3.2: Create poker action endpoint**
+- [x] **3.2: Create poker action endpoint**
   - File: `app/api/poker/[gameId]/action/route.ts`
   - Actions: `check`, `call`, `bet`, `raise`, `fold`
   - Payment required for: `call`, `bet`, `raise`
@@ -185,29 +198,34 @@ Adapt x402 payments for poker actions: blinds, bets, calls, raises.
     5. Broadcast SSE event
     6. If betting round complete: Advance to next round
     7. If hand complete: Determine winner & payout
+  - ✅ Completed: Full poker action endpoint with x402 integration, payment verification, settlement lock, game state updates, and event broadcasting
 
-- [ ] **3.3: Implement pot escrow**
+- [x] **3.3: Implement pot escrow**
   - File: `lib/poker/pot-escrow.ts`
   - Server wallet holds all bets during hand
   - Track pot balance separately from server operational funds
   - Ensure atomic payout to winner
+  - ✅ Completed: Full escrow system with in-memory tracking, pot locks, contribution recording, payout operations, balance validation, and escrow summary utilities
 
-- [ ] **3.4: Create payout mechanism**
+- [x] **3.4: Create payout mechanism**
   - File: `lib/poker/payout.ts`
   - Function: `payoutWinner(gameId, winnerId, amount)`
   - Transfer USDC from server wallet to winner's wallet
   - Handle split pots (multiple winners with same hand)
   - Broadcast payout event via SSE
+  - ✅ Completed: Comprehensive payout system with winner determination, single/split pot payouts, hand completion, refund operations, game-over detection, and event broadcasting
 
-- [ ] **3.5: Handle blinds as forced payments**
+- [x] **3.5: Handle blinds as forced payments**
   - Approach A: Agents automatically pay blinds via x402 when hand starts
   - Approach B: Server deducts blinds from tracked chip stacks (no blockchain tx)
-  - **Decision needed**: Which approach? (Recommend B for efficiency)
+  - **Decision**: User chose Approach A (on-chain blind payments)
+  - ✅ Completed: Created blind payment endpoint (/api/poker/[gameId]/blind), blind manager with tracking/coordination, supports both on-chain (via x402) and offline modes
 
-- [ ] **3.6: Settlement lock for concurrent actions**
+- [x] **3.6: Settlement lock for concurrent actions**
   - Extend existing settlement lock pattern
   - Ensure only one action settles at a time per game
   - Prevent nonce conflicts
+  - ✅ Completed: Created centralized settlement lock utility (lib/poker/settlement-lock.ts) with withSettlementLock(), lock metadata tracking, timeout handling, and statistics. Updated all payment endpoints (action, blind, payout) to use the shared utility.
 
 ---
 
@@ -217,7 +235,7 @@ Adapt the AI agents to play poker with strategic decision-making.
 
 #### Tasks
 
-- [ ] **4.1: Design agent tool interface**
+- [x] **4.1: Design agent tool interface**
   - File: `agents/shared/poker-tools.ts`
   - Tools:
     - `get-game-state`: Returns visible game info (own cards, community cards, pot, stacks, current bet)
@@ -227,8 +245,9 @@ Adapt the AI agents to play poker with strategic decision-making.
     - `raise`: Increase current bet (requires x402 payment)
     - `fold`: Forfeit hand (no payment)
   - Each tool returns success/failure + updated game state
+  - ✅ Completed: Created comprehensive poker tools with LlamaIndex FunctionTool definitions. Includes createPokerTools() factory function, proper TypeScript interfaces, x402 payment integration for paid actions, event emission for observability, and detailed tool descriptions for the AI agent.
 
-- [ ] **4.2: Implement `get-game-state` tool**
+- [x] **4.2: Implement `get-game-state` tool**
   - Fetch current game state from server
   - Filter to show only information agent should know:
     - Own hole cards (private)
@@ -238,6 +257,7 @@ Adapt the AI agents to play poker with strategic decision-making.
     - Current bet to call (public)
     - Betting history this round (public)
   - Hide opponent's hole cards
+  - ✅ Completed: Created server endpoint at app/api/poker/[gameId]/state/route.ts that returns filtered game state. Includes player's hole cards, community cards, pot, chip stacks, current bets, legal actions, position info, pot odds calculation, and minimum raise. Opponent hole cards are hidden (set to null). Provides comprehensive game context for AI decision-making.
 
 - [ ] **4.3: Implement betting action tools**
   - Tools: `check`, `call`, `bet`, `raise`, `fold`

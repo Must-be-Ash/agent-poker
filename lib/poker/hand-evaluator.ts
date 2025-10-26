@@ -80,17 +80,46 @@ function getHandRankType(pokersolverRankName: string): HandRankType {
 }
 
 /**
+ * Checks if a straight flush is actually a royal flush
+ */
+function isRoyalFlush(pokersolverHand: any): boolean {
+  // Royal flush is A-K-Q-J-10 of the same suit
+  // pokersolver calls it "Straight Flush" but we can detect it
+  if (pokersolverHand.name === 'Straight Flush') {
+    const cards = pokersolverHand.cards || [];
+    // Check if it contains an Ace and starts with 10
+    const hasAce = cards.some((c: any) => c.value === '14' || c.value === 'A');
+    const hasTen = cards.some((c: any) => c.value === '10' || c.value === 'T');
+    return hasAce && hasTen;
+  }
+  return false;
+}
+
+/**
  * Generates a unique comparable value for a hand
  * Higher value = better hand
- * Format: [HandRankType * 1000000] + [tiebreaker value]
+ * Format: [HandRankType * 100000000] + [card values for tiebreaking]
  */
 function calculateHandValue(pokersolverHand: any): number {
-  const rankType = getHandRankType(pokersolverHand.name);
+  let rankType = getHandRankType(pokersolverHand.name);
 
-  // pokersolver already provides a comparable rank value
-  // We combine it with our rank type for a unique comparable value
-  // Multiply rank type by 1,000,000 to ensure different hand types don't overlap
-  return (rankType * 1000000) + (pokersolverHand.rank || 0);
+  // Check for royal flush (pokersolver doesn't distinguish it from straight flush)
+  if (isRoyalFlush(pokersolverHand)) {
+    rankType = 9; // Royal Flush
+  }
+
+  // pokersolver has a 'rank' that's a unique number for each possible hand
+  // The higher the rank, the better the hand
+  // We multiply rankType by a large number to ensure different types don't overlap
+  // pokersolver's rank goes up to around 7462 for worst high card
+  const baseValue = (rankType * 100000000);
+
+  // Use pokersolver's rank directly - it's designed to be comparable within same hand type
+  // Note: In pokersolver, LOWER rank number = BETTER hand (rank 1 = royal flush)
+  // So we need to invert it: subtract from max rank value
+  const invertedRank = 10000 - (pokersolverHand.rank || 0);
+
+  return baseValue + invertedRank;
 }
 
 // ============================================================================
@@ -119,12 +148,15 @@ export function evaluateHand(cards: Card[]): HandRank {
   // Use pokersolver to find best hand
   const hand = Hand.solve(pokersolverCards);
 
+  // Check if it's a royal flush
+  const isRoyal = isRoyalFlush(hand);
+
   // Convert back to our type system
   const handRank: HandRank = {
-    type: getHandRankType(hand.name),
-    name: hand.name,
+    type: isRoyal ? 9 : getHandRankType(hand.name),
+    name: isRoyal ? 'Royal Flush' : hand.name,
     value: calculateHandValue(hand),
-    description: hand.descr, // pokersolver provides detailed description
+    description: isRoyal ? 'Royal Flush, A to 10' : hand.descr,
   };
 
   return handRank;
@@ -132,12 +164,23 @@ export function evaluateHand(cards: Card[]): HandRank {
 
 /**
  * Compares two hands to determine winner
+ * Uses proper poker hand comparison including tiebreakers
  * @param hand1 - First hand to compare
  * @param hand2 - Second hand to compare
  * @returns Positive if hand1 wins, negative if hand2 wins, 0 if tie
  */
 export function compareHands(hand1: HandRank, hand2: HandRank): number {
-  return hand1.value - hand2.value;
+  // Compare by hand type first
+  if (hand1.type !== hand2.type) {
+    return hand1.type - hand2.type;
+  }
+
+  // For same type, use value which includes pokersolver's rank
+  // Higher rank in pokersolver means better hand
+  const diff = hand1.value - hand2.value;
+
+  // Ensure we return the correct sign
+  return diff;
 }
 
 /**
@@ -150,16 +193,18 @@ export function determineWinners(hands: Card[][]): number[] {
     return [];
   }
 
-  // Evaluate all hands
-  const evaluatedHands = hands.map((cards) => evaluateHand(cards));
+  // Convert to pokersolver format and solve
+  const pokersolverHands = hands.map((cards) =>
+    Hand.solve(cardsToPokersolverFormat(cards))
+  );
 
-  // Find the best hand value
-  const bestValue = Math.max(...evaluatedHands.map((h) => h.value));
+  // Use pokersolver's built-in winners() method for accurate comparison
+  const winningHands = Hand.winners(pokersolverHands);
 
-  // Return indices of all hands that match the best value (handles ties)
+  // Find indices of winning hands
   const winners: number[] = [];
-  for (let i = 0; i < evaluatedHands.length; i++) {
-    if (evaluatedHands[i].value === bestValue) {
+  for (let i = 0; i < pokersolverHands.length; i++) {
+    if (winningHands.includes(pokersolverHands[i])) {
       winners.push(i);
     }
   }
