@@ -58,6 +58,7 @@ export class PokerAgent {
   private lastChipStack: number = 0;
   private isMyTurn: boolean = false;
   private isThinking: boolean = false;
+  private pollingCounter: number = 0;
 
   constructor(config: PokerAgentConfig) {
     this.agentName = config.agentName;
@@ -373,6 +374,17 @@ Keep it concise and strategic. This will be shown to viewers watching the game.`
         this.isMyTurn = false;
       } else if (!gameState.isYourTurn) {
         this.isMyTurn = false;
+
+        // Emit periodic "waiting" event every 5 polling cycles (10 seconds with 2s interval)
+        this.pollingCounter++;
+        if (this.pollingCounter % 5 === 0) {
+          await this.emitEvent(this.gameId, 'agent_waiting', {
+            handNumber: gameState.handNumber,
+            bettingRound: gameState.bettingRound,
+            pot: gameState.pot,
+            yourChips: gameState.yourChips,
+          });
+        }
       }
 
     } catch (error: unknown) {
@@ -389,6 +401,11 @@ Keep it concise and strategic. This will be shown to viewers watching the game.`
 
     const balance = await this.getUSDCBalance();
     console.log(`💵 [${this.agentName}] USDC balance: ${balance.toFixed(2)}`);
+
+    // Emit balance check event
+    await this.emitEvent(this.gameId, 'agent_balance_check', {
+      balance,
+    });
 
     // Get initial game state
     const gameState = await this.getGameState();

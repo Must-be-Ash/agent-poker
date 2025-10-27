@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getPokerEventsSince } from '@/lib/db';
-import { storeEvent } from '@/lib/events';
+import { getPokerEventsSince, storePokerEvent } from '@/lib/db';
 
 export const dynamic = 'force-dynamic';
 
@@ -70,7 +69,7 @@ export async function POST(
     }
 
     // Store event using gameId as the identifier
-    await storeEvent(gameId, eventType as any, {
+    await storePokerEvent(gameId, eventType as any, {
       ...data,
       agentId,
       gameId,

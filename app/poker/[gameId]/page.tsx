@@ -238,6 +238,70 @@ export default function PokerGamePage({ params }: { params: Promise<{ gameId: st
               </div>
             )}
 
+            {/* Tool call */}
+            {type === 'agent_tool_call' && (
+              <div
+                className={`rounded-2xl px-3 py-2 bg-[#2a2a2a] border border-[#444444] ${
+                  isAgentA ? 'rounded-tl-sm' : 'rounded-tr-sm'
+                } relative overflow-hidden`}
+              >
+                {/* Shimmer animation */}
+                <div className="absolute inset-0 shimmer"></div>
+
+                <div className="text-[#888888] text-xs flex items-center gap-1.5 relative z-10">
+                  <span className="animate-pulse">⚙️</span>
+                  <span className="font-mono">{data.tool}</span>
+                </div>
+              </div>
+            )}
+
+            {/* Tool response */}
+            {type === 'agent_tool_response' && (
+              <div
+                className={`rounded-2xl px-4 py-2 bg-[#2a2a2a] border border-[#444444] ${
+                  isAgentA ? 'rounded-tl-sm' : 'rounded-tr-sm'
+                }`}
+              >
+                <div className="text-[#888888] text-xs flex items-center gap-1">
+                  <span>✓</span>
+                  <span className="font-mono">{data.tool} complete</span>
+                </div>
+              </div>
+            )}
+
+            {/* Poker action initiated */}
+            {type === 'poker_action_initiated' && (
+              <div
+                className={`rounded-2xl px-4 py-3 bg-[#333333] border border-[#555555] ${
+                  isAgentA ? 'rounded-tl-sm' : 'rounded-tr-sm'
+                }`}
+              >
+                <div className="text-[#cccccc] text-sm mb-2 font-semibold">
+                  💡 {data.action?.toUpperCase()} {data.amount ? `$${data.amount}` : ''}
+                </div>
+                {data.reasoning && (
+                  <div className="text-[#aaaaaa] text-xs leading-relaxed italic">
+                    &quot;{data.reasoning.substring(0, 150)}
+                    {data.reasoning.length > 150 && '...'}&quot;
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Poker action response */}
+            {type === 'poker_action_response' && (
+              <div
+                className={`rounded-2xl px-3 py-2 bg-[#2a2a2a] border border-[#444444] ${
+                  isAgentA ? 'rounded-tl-sm' : 'rounded-tr-sm'
+                }`}
+              >
+                <div className="text-[#888888] text-xs flex items-center gap-1">
+                  <span>✓</span>
+                  <span>{data.action} executed</span>
+                </div>
+              </div>
+            )}
+
             {/* Blind posted */}
             {type === 'blind_posted' && (
               <div
@@ -261,6 +325,75 @@ export default function PokerGamePage({ params }: { params: Promise<{ gameId: st
                     View on Basescan →
                   </a>
                 )}
+              </div>
+            )}
+
+            {/* Agent joined */}
+            {type === 'agent_joined' && (
+              <div
+                className={`rounded-2xl px-4 py-3 bg-[#2a2a2a] border border-[#444444] ${
+                  isAgentA ? 'rounded-tl-sm' : 'rounded-tr-sm'
+                }`}
+              >
+                <div className="text-[#cccccc] text-sm mb-1">
+                  🎰 Joined game
+                </div>
+                {data.balance && (
+                  <div className="text-[#888888] text-xs">
+                    Balance: ${data.balance.toFixed(2)} USDC
+                  </div>
+                )}
+                {data.personality && (
+                  <div className="text-[#666666] text-xs mt-1">
+                    Style: {data.personality.style}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Agent error */}
+            {type === 'agent_error' && (
+              <div
+                className={`rounded-2xl px-4 py-3 bg-[#3a2a2a] border border-[#664444] ${
+                  isAgentA ? 'rounded-tl-sm' : 'rounded-tr-sm'
+                }`}
+              >
+                <div className="text-[#ff8888] text-sm mb-1">
+                  ❌ Error
+                </div>
+                {data.error && (
+                  <div className="text-[#cc8888] text-xs">
+                    {data.error.substring(0, 100)}...
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Balance check */}
+            {type === 'agent_balance_check' && (
+              <div
+                className={`rounded-2xl px-3 py-2 bg-[#2a2a2a] border border-[#444444] ${
+                  isAgentA ? 'rounded-tl-sm' : 'rounded-tr-sm'
+                }`}
+              >
+                <div className="text-[#888888] text-xs flex items-center gap-1">
+                  <span>💵</span>
+                  <span>Balance: ${data.balance?.toFixed(2)} USDC</span>
+                </div>
+              </div>
+            )}
+
+            {/* Waiting */}
+            {type === 'agent_waiting' && (
+              <div
+                className={`rounded-2xl px-3 py-2 bg-[#2a2a2a] border border-[#444444] ${
+                  isAgentA ? 'rounded-tl-sm' : 'rounded-tr-sm'
+                }`}
+              >
+                <div className="text-[#888888] text-xs flex items-center gap-1">
+                  <span>⏳</span>
+                  <span>Waiting for turn...</span>
+                </div>
               </div>
             )}
 
