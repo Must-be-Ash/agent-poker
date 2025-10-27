@@ -196,8 +196,7 @@ export default function PokerGamePage({ params }: { params: Promise<{ gameId: st
                   <span>Decision</span>
                 </div>
                 <div className="text-[#cccccc] text-xs leading-relaxed italic">
-                  &quot;{data.reasoning.substring(0, 200)}
-                  {data.reasoning.length > 200 && '...'}&quot;
+                  &quot;{data.reasoning}&quot;
                 </div>
               </div>
             )}
@@ -281,8 +280,7 @@ export default function PokerGamePage({ params }: { params: Promise<{ gameId: st
                 </div>
                 {data.reasoning && (
                   <div className="text-[#aaaaaa] text-xs leading-relaxed italic">
-                    &quot;{data.reasoning.substring(0, 150)}
-                    {data.reasoning.length > 150 && '...'}&quot;
+                    &quot;{data.reasoning}&quot;
                   </div>
                 )}
               </div>
@@ -363,7 +361,7 @@ export default function PokerGamePage({ params }: { params: Promise<{ gameId: st
                 </div>
                 {data.error && (
                   <div className="text-[#cc8888] text-xs">
-                    {data.error.substring(0, 100)}...
+                    {data.error}
                   </div>
                 )}
               </div>

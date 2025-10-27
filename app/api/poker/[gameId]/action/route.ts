@@ -10,6 +10,7 @@ import type { PaymentPayload } from 'x402/types';
 import { getPokerGame, updateGameState, addActionToHistory } from '@/lib/poker-db';
 import { PokerGame } from '@/lib/poker/game-state';
 import { getServerWalletClient } from '@/lib/wallet';
+import { recordPotContribution } from '@/lib/poker/pot-escrow';
 import {
   calculatePokerPayment,
   formatPaymentAmount,
@@ -278,6 +279,9 @@ export async function POST(
           settlementResult = await settle(walletClient as any, payload, paymentRequirements!);
 
           PokerLogger.logPaymentSettled(gameId, agentId, playerName, paymentAmount, settlementResult.transaction);
+
+          // Record contribution in escrow
+          await recordPotContribution(gameId, agentId, paymentAmount);
         } catch (error: unknown) {
           const errorMessage = error instanceof Error ? error.message : String(error);
           console.error(`❌ [${agentId}] Payment processing failed:`, errorMessage);

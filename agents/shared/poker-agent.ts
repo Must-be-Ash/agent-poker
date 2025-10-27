@@ -318,7 +318,13 @@ Keep it concise and strategic. This will be shown to viewers watching the game.`
         ],
       });
 
-      const reflection = reflectionResponse.message.content as string;
+      // Extract text from Anthropic response (can be string or array of content blocks)
+      const content = reflectionResponse.message.content;
+      const reflection = typeof content === 'string'
+        ? content
+        : Array.isArray(content)
+          ? content.map(block => (block as any).type === 'text' ? (block as any).text : '').join('')
+          : '';
 
       console.log(`📝 [${this.agentName}] Reflection: ${reflection}`);
 
