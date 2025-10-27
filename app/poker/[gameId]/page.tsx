@@ -503,22 +503,10 @@ export default function PokerGamePage({ params }: { params: Promise<{ gameId: st
     return null;
   };
 
-  // Separate events by agent (use exact match to avoid overlap)
-  const agentAEvents = events.filter(e => {
-    const agentId = e.data.agentId;
-    return agentId === 'agent-a';
-  });
-
-  const agentBEvents = events.filter(e => {
-    const agentId = e.data.agentId;
-    return agentId === 'agent-b';
-  });
-
-  const centerEvents = events.filter(e => {
-    const { type } = e;
-    // Exclude 'hand_started' as hand number is already shown in sticky header
-    return ['cards_dealt', 'betting_round_complete', 'showdown', 'hand_complete', 'game_ended'].includes(type);
-  });
+  // Determine if an event is a center (system) event
+  const isCenterEvent = (eventType: string) => {
+    return ['hand_started', 'cards_dealt', 'betting_round_complete', 'showdown', 'hand_complete', 'game_ended'].includes(eventType);
+  };
 
   return (
     <div className="min-h-screen bg-[#1a1a1a] flex flex-col">
@@ -658,26 +646,31 @@ export default function PokerGamePage({ params }: { params: Promise<{ gameId: st
               <p className="text-sm mt-2">Game ID: {gameId}</p>
             </div>
           ) : (
-            <div className="grid grid-cols-[1fr,auto,1fr] gap-8">
-              {/* Agent A Column (Left) */}
-              <div className="space-y-4">
-                {agentAEvents.map((event, idx) => renderAgentEvent(event, idx, true))}
-              </div>
+            <div className="space-y-4">
+              {/* Render all events in chronological order */}
+              {events.map((event, idx) => {
+                const { type, data } = event;
 
-              {/* Center Column (System Events) */}
-              <div className="w-px bg-[#333333]" />
+                // Center events (system events)
+                if (isCenterEvent(type)) {
+                  return renderCenterEvent(event, idx);
+                }
 
-              {/* Agent B Column (Right) */}
-              <div className="space-y-4">
-                {agentBEvents.map((event, idx) => renderAgentEvent(event, idx, false))}
-              </div>
+                // Agent A events (left-aligned)
+                if (data.agentId === 'agent-a') {
+                  return renderAgentEvent(event, idx, true);
+                }
+
+                // Agent B events (right-aligned)
+                if (data.agentId === 'agent-b') {
+                  return renderAgentEvent(event, idx, false);
+                }
+
+                // Unknown event type
+                return null;
+              })}
             </div>
           )}
-
-          {/* Center events overlay */}
-          <div className="mt-6">
-            {centerEvents.map((event, idx) => renderCenterEvent(event, idx)).filter(Boolean)}
-          </div>
 
           <div ref={messagesEndRef} />
         </div>
