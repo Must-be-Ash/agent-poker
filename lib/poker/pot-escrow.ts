@@ -4,11 +4,12 @@
  * Server wallet holds all bets, but we track them separately per game
  */
 
-import { getPokerGame, updateGameState } from './poker-db';
+import { getPokerGame, updateGameState } from '../poker-db';
 import { getServerWalletClient } from '../wallet';
 import { createPublicClient, http, parseUnits, formatUnits } from 'viem';
 import { baseSepolia } from 'viem/chains';
 import { BASE_SEPOLIA_USDC } from '../x402-poker-config';
+import type { PlayerState } from '@/types/poker';
 
 // ERC-20 ABI for transfer
 const ERC20_ABI = [
@@ -237,7 +238,7 @@ export async function payoutPot(
         if (amount <= 0) continue;
 
         // Find player's wallet address
-        const player = game.players.find((p) => p.agentId === playerId);
+        const player = game.players.find((p: PlayerState) => p.agentId === playerId);
         if (!player) {
           console.warn(`⚠️  Player ${playerId} not found in game ${gameId}`);
           continue;

@@ -3,9 +3,10 @@
  * Coordinates blind payments at the start of each hand
  */
 
-import { getPokerGame, updateGameState } from './poker-db';
-import { storeEvent } from '../events';
+import { getPokerGame, updateGameState } from '../poker-db';
+import { storePokerEvent } from '../db';
 import { getSmallBlindAmount, getBigBlindAmount } from '../x402-poker-config';
+import type { PlayerState } from '@/types/poker';
 
 // ============================================================================
 // BLIND PAYMENT TRACKING
@@ -143,8 +144,8 @@ export async function requestBlindPayments(gameId: string): Promise<void> {
     throw new Error(`Game ${gameId} not found`);
   }
 
-  const smallBlindPlayer = game.players.find((p) => p.isSmallBlind);
-  const bigBlindPlayer = game.players.find((p) => p.isBigBlind);
+  const smallBlindPlayer = game.players.find((p: PlayerState) => p.isSmallBlind);
+  const bigBlindPlayer = game.players.find((p: PlayerState) => p.isBigBlind);
 
   if (!smallBlindPlayer || !bigBlindPlayer) {
     throw new Error('Could not find blind positions');
@@ -157,7 +158,7 @@ export async function requestBlindPayments(gameId: string): Promise<void> {
   initializeBlindTracking(gameId, game.handNumber);
 
   // Broadcast blind request events
-  await storeEvent(gameId, 'blind_required', {
+  await storePokerEvent(gameId, 'blind_required', {
     handNumber: game.handNumber,
     smallBlind: {
       playerId: smallBlindPlayer.agentId,
@@ -197,7 +198,7 @@ export async function validateBlindPayment(
     return { valid: false, error: 'Game not found' };
   }
 
-  const player = game.players.find((p) => p.agentId === playerId);
+  const player = game.players.find((p: PlayerState) => p.agentId === playerId);
   if (!player) {
     return { valid: false, error: 'Player not found' };
   }
@@ -250,8 +251,8 @@ export async function postBlindsOffline(gameId: string): Promise<void> {
     throw new Error(`Game ${gameId} not found`);
   }
 
-  const smallBlindPlayer = game.players.find((p) => p.isSmallBlind);
-  const bigBlindPlayer = game.players.find((p) => p.isBigBlind);
+  const smallBlindPlayer = game.players.find((p: PlayerState) => p.isSmallBlind);
+  const bigBlindPlayer = game.players.find((p: PlayerState) => p.isBigBlind);
 
   if (!smallBlindPlayer || !bigBlindPlayer) {
     throw new Error('Could not find blind positions');
@@ -261,7 +262,7 @@ export async function postBlindsOffline(gameId: string): Promise<void> {
   const bigBlindAmount = getBigBlindAmount();
 
   // Update player chip stacks
-  const updatedPlayers = game.players.map((p) => {
+  const updatedPlayers = game.players.map((p: PlayerState) => {
     if (p.isSmallBlind) {
       return {
         ...p,

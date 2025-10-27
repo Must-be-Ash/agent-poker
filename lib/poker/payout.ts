@@ -3,12 +3,13 @@
  * High-level payout coordination with game state updates and event broadcasting
  */
 
-import { getPokerGame, updateGameState, storeHandResult, endGame } from './poker-db';
+import { getPokerGame, updateGameState, storeHandResult, endGame } from '../poker-db';
 import { payoutPot, payoutToWinner as escrowPayoutToWinner } from './pot-escrow';
-import { storeEvent } from '../events';
+import { storePokerEvent } from '../db';
 import { evaluateBestHand, compareHands } from './hand-evaluator';
 import type { HandResult, PlayerState } from '@/types/poker';
 import { withSettlementLock } from './settlement-lock';
+import { calculateSidePots, distributeWithOddChip } from './all-in-logic';
 
 // ============================================================================
 // WINNER DETERMINATION
@@ -30,7 +31,7 @@ export async function determineHandWinner(gameId: string): Promise<{
 
   // Get all players who haven't folded and have cards
   const activePlayers = game.players.filter(
-    (p) => p.status !== 'folded' && p.status !== 'out' && p.cards !== null
+    (p: PlayerState) => p.status !== 'folded' && p.status !== 'out' && p.cards !== null
   );
 
   if (activePlayers.length === 0) {
@@ -136,7 +137,7 @@ export async function payoutWinner(
       throw new Error(`Game ${gameId} not found`);
     }
 
-    const winner = game.players.find((p) => p.agentId === winnerId);
+    const winner = game.players.find((p: PlayerState) => p.agentId === winnerId);
     if (!winner) {
       throw new Error(`Winner ${winnerId} not found in game`);
     }
@@ -147,7 +148,7 @@ export async function payoutWinner(
     const txHash = await escrowPayoutToWinner(gameId, winnerId, amount);
 
     // Update winner's chip stack in game state
-    const updatedPlayers = game.players.map((p) => {
+    const updatedPlayers = game.players.map((p: PlayerState) => {
       if (p.agentId === winnerId) {
         return {
           ...p,
@@ -163,7 +164,7 @@ export async function payoutWinner(
     });
 
     // Broadcast payout event
-    await storeEvent(gameId, 'payout', {
+    await storePokerEvent(gameId, 'payout', {
       winnerId,
       winnerName: winner.agentName,
       amount,
@@ -214,7 +215,7 @@ export async function payoutSplitPot(
     const txHashes = await payoutPot(gameId, payouts);
 
     // Update all winners' chip stacks
-    const updatedPlayers = game.players.map((p) => {
+    const updatedPlayers = game.players.map((p: PlayerState) => {
       const payout = payouts.get(p.agentId);
       if (payout) {
         return {
@@ -231,9 +232,9 @@ export async function payoutSplitPot(
     });
 
     // Broadcast split pot event
-    await storeEvent(gameId, 'split_pot', {
+    await storePokerEvent(gameId, 'split_pot', {
       winners: winners.map((id) => {
-        const player = game.players.find((p) => p.agentId === id);
+        const player = game.players.find((p: PlayerState) => p.agentId === id);
         return {
           agentId: id,
           agentName: player?.agentName || 'Unknown',
@@ -252,6 +253,7 @@ export async function payoutSplitPot(
 
 /**
  * Completes a hand with winner determination and payout
+ * Handles side pots for all-in scenarios
  * @param gameId - Game identifier
  * @returns Hand result with payout info
  */
@@ -263,70 +265,200 @@ export async function completeHandWithPayout(gameId: string): Promise<HandResult
 
   console.log(`🏁 [Payout] Completing hand #${game.handNumber} for game ${gameId}`);
 
-  // Determine winner(s)
-  const { winners, handResult } = await determineHandWinner(gameId);
+  // Calculate side pots (handles all-in scenarios)
+  const sidePotResult = calculateSidePots(game.players);
+
+  console.log(`💰 [Payout] ${sidePotResult.description}`);
+
+  // If no pots (everyone folded preflop), no payout needed
+  if (sidePotResult.pots.length === 0) {
+    const handResult: HandResult = {
+      handNumber: game.handNumber,
+      winnerId: 'none',
+      winnerName: 'None',
+      winningHand: { type: 0, name: 'No Contest', value: 0, description: 'No pot' },
+      winningCards: [],
+      potWon: 0,
+      timestamp: new Date(),
+    };
+    return handResult;
+  }
+
+  // Evaluate hands for all players who can win (not folded)
+  const eligiblePlayers = game.players.filter(
+    (p: PlayerState) => p.status !== 'folded' && p.status !== 'out' && p.cards !== null
+  );
+
+  const evaluatedHands: Array<{
+    player: PlayerState;
+    handRank: any;
+  }> = [];
+
+  for (const player of eligiblePlayers) {
+    if (!player.cards) continue;
+    const handRank = evaluateBestHand(player.cards, game.communityCards);
+    evaluatedHands.push({ player, handRank });
+  }
+
+  // Determine winner(s) for each pot
+  const potWinners = new Map<number, string[]>();
+
+  for (const pot of sidePotResult.pots) {
+    // Get eligible hands for this pot
+    const eligibleHands = evaluatedHands.filter((h) =>
+      pot.eligiblePlayers.includes(h.player.agentId)
+    );
+
+    if (eligibleHands.length === 0) {
+      console.warn(`⚠️ No eligible players for pot #${pot.potNumber}`);
+      continue;
+    }
+
+    // Find best hand(s) for this pot
+    let bestHands = [eligibleHands[0]];
+
+    for (let i = 1; i < eligibleHands.length; i++) {
+      const comparison = compareHands(eligibleHands[i].handRank, bestHands[0].handRank);
+
+      if (comparison > 0) {
+        bestHands = [eligibleHands[i]];
+      } else if (comparison === 0) {
+        bestHands.push(eligibleHands[i]);
+      }
+    }
+
+    const winners = bestHands.map((h) => h.player.agentId);
+    potWinners.set(pot.potNumber, winners);
+
+    console.log(`   Pot #${pot.potNumber}: ${winners.length} winner(s) - ${winners.join(', ')}`);
+  }
+
+  // Distribute pots to winners (with proper odd chip handling)
+  const escrowPayouts = new Map<string, number>();
+
+  for (const pot of sidePotResult.pots) {
+    const winners = potWinners.get(pot.potNumber);
+    if (!winners || winners.length === 0) continue;
+
+    let potPayouts: Map<string, number>;
+
+    if (winners.length === 1) {
+      // Single winner gets entire pot
+      potPayouts = new Map([[winners[0], pot.amount]]);
+    } else {
+      // Multiple winners - split pot with odd chip rule
+      potPayouts = distributeWithOddChip(
+        pot.amount,
+        winners,
+        game.dealerPosition,
+        game.players
+      );
+      console.log(`   🎲 Split pot #${pot.potNumber} among ${winners.length} winners (odd chip to closest to dealer)`);
+    }
+
+    // Add to total payouts
+    for (const [playerId, amount] of potPayouts.entries()) {
+      const currentAmount = escrowPayouts.get(playerId) || 0;
+      escrowPayouts.set(playerId, currentAmount + amount);
+    }
+  }
+
+  console.log(`💰 [Payout] Distributing ${sidePotResult.totalAmount} USDC to ${escrowPayouts.size} player(s)`);
+
+  // Execute payouts via escrow system
+  const txHashes = await payoutPot(gameId, escrowPayouts);
+
+  // Update player chip stacks
+  const updatedPlayers = game.players.map((p: PlayerState) => {
+    const payout = escrowPayouts.get(p.agentId);
+    if (payout) {
+      return {
+        ...p,
+        chipStack: p.chipStack + payout,
+      };
+    }
+    return p;
+  });
+
+  await updateGameState(gameId, {
+    players: updatedPlayers,
+    pot: 0, // Pot is now empty
+  });
+
+  // Create hand result for primary winner
+  const primaryWinnerId = Array.from(potWinners.values())[0]?.[0] || 'unknown';
+  const primaryWinnerHand = evaluatedHands.find((h) => h.player.agentId === primaryWinnerId);
+
+  const handResult: HandResult = {
+    handNumber: game.handNumber,
+    winnerId: primaryWinnerId,
+    winnerName: primaryWinnerHand?.player.agentName || 'Unknown',
+    winningHand: primaryWinnerHand?.handRank || { type: 0, name: 'Unknown', value: 0, description: '' },
+    winningCards: primaryWinnerHand ? [...primaryWinnerHand.player.cards!, ...game.communityCards] : [],
+    potWon: escrowPayouts.get(primaryWinnerId) || 0,
+    timestamp: new Date(),
+  };
 
   // Store hand result
   await storeHandResult(gameId, handResult);
 
-  // Execute payout
-  if (winners.length === 1) {
-    // Single winner
-    const txHash = await payoutWinner(gameId, winners[0], game.pot);
-    handResult.potWon = game.pot;
+  // Determine if there was a tie (multiple winners for any pot)
+  const hasTie = Array.from(potWinners.values()).some((winners) => winners.length > 1);
+  const totalWinners = new Set(Array.from(potWinners.values()).flat()).size;
 
-    // Broadcast hand complete event
-    await storeEvent(gameId, 'hand_complete', {
-      handNumber: game.handNumber,
-      winnerId: winners[0],
-      winnerName: handResult.winnerName,
-      winningHand: handResult.winningHand.name,
-      potWon: game.pot,
-      txHash,
-    });
-  } else {
-    // Split pot
-    const txHashes = await payoutSplitPot(gameId, winners, game.pot);
-
-    // Broadcast hand complete event with split pot info
-    await storeEvent(gameId, 'hand_complete', {
-      handNumber: game.handNumber,
-      winners: winners.map((id) => {
-        const player = game.players.find((p) => p.agentId === id);
-        return {
-          agentId: id,
-          agentName: player?.agentName || 'Unknown',
-        };
-      }),
-      winningHand: handResult.winningHand.name,
-      potWon: game.pot,
-      splitPot: true,
-      txHashes: Array.from(txHashes.values()),
-    });
-  }
+  // Broadcast hand complete event
+  await storePokerEvent(gameId, 'hand_complete', {
+    gameId,
+    handNumber: game.handNumber,
+    winnerId: primaryWinnerId,
+    winnerName: handResult.winnerName,
+    winningHand: handResult.winningHand,
+    amountWon: sidePotResult.totalAmount,
+    sidePots: sidePotResult.pots.length > 1,
+    tie: hasTie,
+    totalWinners,
+    potBreakdown: Array.from(escrowPayouts.entries()).map(([id, amount]) => {
+      const player = game.players.find((p: PlayerState) => p.agentId === id);
+      const playerHand = evaluatedHands.find((h) => h.player.agentId === id);
+      return {
+        agentId: id,
+        agentName: player?.agentName || 'Unknown',
+        amount,
+        handRank: playerHand?.handRank,
+      };
+    }),
+    reason: 'showdown',
+    finalChipStacks: Object.fromEntries(
+      updatedPlayers.map((p: PlayerState) => [p.agentId, p.chipStack])
+    ),
+  });
 
   // Check if game is over (one player has all chips)
-  const updatedGame = await getPokerGame(gameId);
-  if (updatedGame) {
-    const playersWithChips = updatedGame.players.filter((p) => p.chipStack > 0);
+  const playersWithChips = updatedPlayers.filter((p: PlayerState) => p.chipStack > 0);
 
-    if (playersWithChips.length === 1) {
-      // Game over!
-      const gameWinner = playersWithChips[0];
+  if (playersWithChips.length === 1) {
+    // Game over!
+    const gameWinner = playersWithChips[0];
 
-      await endGame(gameId, gameWinner.agentId, {
-        gameStatus: 'ended',
-      });
+    await endGame(gameId, gameWinner.agentId, {
+      gameStatus: 'ended',
+    });
 
-      await storeEvent(gameId, 'game_ended', {
-        winnerId: gameWinner.agentId,
-        winnerName: gameWinner.agentName,
-        finalChipCount: gameWinner.chipStack,
-        totalHands: updatedGame.handNumber,
-      });
+    // Find the loser (player with 0 chips)
+    const loser = updatedPlayers.find((p: PlayerState) => p.chipStack === 0);
 
-      console.log(`🏆 [Payout] Game ${gameId} ended. Winner: ${gameWinner.agentName}`);
-    }
+    await storePokerEvent(gameId, 'game_ended', {
+      gameId,
+      winnerId: gameWinner.agentId,
+      winnerName: gameWinner.agentName,
+      winnerChips: gameWinner.chipStack,
+      loserId: loser?.agentId || 'unknown',
+      loserName: loser?.agentName || 'Unknown',
+      handsPlayed: game.handNumber,
+      reason: 'knockout',
+    });
+
+    console.log(`🏆 [Payout] Game ${gameId} ended. Winner: ${gameWinner.agentName}`);
   }
 
   return handResult;
@@ -354,7 +486,7 @@ export async function refundPlayer(
       throw new Error(`Game ${gameId} not found`);
     }
 
-    const player = game.players.find((p) => p.agentId === playerId);
+    const player = game.players.find((p: PlayerState) => p.agentId === playerId);
     if (!player) {
       throw new Error(`Player ${playerId} not found in game`);
     }
@@ -365,7 +497,7 @@ export async function refundPlayer(
     const txHash = await escrowPayoutToWinner(gameId, playerId, amount);
 
     // Update game state
-    const updatedPlayers = game.players.map((p) => {
+    const updatedPlayers = game.players.map((p: PlayerState) => {
       if (p.agentId === playerId) {
         return {
           ...p,
@@ -381,7 +513,7 @@ export async function refundPlayer(
     });
 
     // Broadcast refund event
-    await storeEvent(gameId, 'refund', {
+    await storePokerEvent(gameId, 'refund', {
       agentId: playerId,
       agentName: player.agentName,
       amount,

@@ -44,17 +44,18 @@ export async function GET(
     }
 
     // Check if it's this player's turn
+    // A folded player should never see isYourTurn=true, even if currentPlayerIndex points to them
     const currentPlayer = game.players[game.currentPlayerIndex];
-    const isYourTurn = currentPlayer.agentId === agentId;
+    const isYourTurn = currentPlayer.agentId === agentId && player.status === 'active';
 
     // Determine legal actions based on game state and player position
     const legalActions: string[] = [];
 
-    if (isYourTurn) {
-      // Folding is always legal on your turn (unless you're all-in)
-      if (player.status !== 'all-in') {
-        legalActions.push('fold');
-      }
+    // Only add legal actions if it's your turn AND you're active
+    // (Folded, all-in, or out players cannot take actions)
+    if (isYourTurn && player.status === 'active') {
+      // Folding is always legal on your turn
+      legalActions.push('fold');
 
       // Check if player can check (no bet to call)
       if (game.currentBet === player.currentBet) {

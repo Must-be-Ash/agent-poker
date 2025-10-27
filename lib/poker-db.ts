@@ -160,6 +160,19 @@ export async function getPokerGame(gameId: string): Promise<PokerGameRecord | nu
 }
 
 /**
+ * Gets all poker games
+ * @returns Array of all game records
+ */
+export async function getAllPokerGames(): Promise<PokerGameRecord[]> {
+  const { db } = await connectToDatabase();
+  return db
+    .collection<PokerGameRecord>(POKER_GAMES_COLLECTION)
+    .find({})
+    .sort({ updatedAt: -1 })
+    .toArray();
+}
+
+/**
  * Updates poker game state
  * @param gameId - Game identifier
  * @param updates - Partial game state to update

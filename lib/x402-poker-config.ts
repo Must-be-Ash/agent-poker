@@ -113,10 +113,20 @@ export function getBigBlindAmount(): number {
 }
 
 /**
- * Gets starting chip stack from environment or default
+ * Gets minimum required chip balance from environment or default
+ * Players must have at least this amount in their wallet to join
  */
-export function getStartingChips(): number {
-  return parseFloat(process.env.STARTING_CHIPS_USDC || '1000');
+export function getMinimumChipsRequired(): number {
+  return parseFloat(process.env.MIN_CHIPS_REQUIRED_USDC || '100');
+}
+
+/**
+ * Checks if a wallet balance meets the minimum requirement
+ * @param balance - Wallet balance in USDC
+ * @returns true if balance is sufficient, false otherwise
+ */
+export function hasMinimumBalance(balance: number): boolean {
+  return balance >= getMinimumChipsRequired();
 }
 
 /**
@@ -225,7 +235,7 @@ export function getPokerGameConfig() {
   return {
     smallBlind: getSmallBlindAmount(),
     bigBlind: getBigBlindAmount(),
-    startingChips: getStartingChips(),
+    minChipsRequired: getMinimumChipsRequired(),
     facilitatorUrl: facilitatorConfig.url,
     usdcAddress: BASE_SEPOLIA_USDC,
     paymentScheme: PAYMENT_SCHEME,
@@ -265,20 +275,36 @@ export function getMinimumRaise(currentBet: number, previousRaiseSize?: number):
  * @param amount - Payment amount in USDC
  * @param actionType - Type of poker action
  * @param description - Human-readable description
- * @returns Payment requirements object
+ * @returns Payment requirements object matching x402 PaymentRequirements type
  */
 export function createPaymentRequirements(
   amount: number,
   actionType: PokerActionType,
   description?: string
 ) {
+  // Convert USDC amount to atomic units (USDC has 6 decimals)
+  const atomicUnits = Math.floor(amount * 1_000_000).toString();
+
+  // Get server wallet address for payTo field
+  const serverWalletAddress = process.env.SERVER_WALLET_ADDRESS || '0x0000000000000000000000000000000000000000';
+
+  // Construct resource URL (will be the current request URL in practice)
+  const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000';
+  const resource = `${baseUrl}/api/poker`;
+
   return {
-    price: formatPaymentAmount(amount),
-    currency: 'USDC',
-    token: BASE_SEPOLIA_USDC,
-    chain: 'base-sepolia',
-    scheme: PAYMENT_SCHEME,
-    action: actionType,
+    scheme: 'exact' as const,
+    network: 'base-sepolia' as const,
+    maxAmountRequired: atomicUnits,
+    asset: BASE_SEPOLIA_USDC,
+    payTo: serverWalletAddress,
+    resource,
     description: description || `${actionType} ${formatPaymentAmount(amount)}`,
+    mimeType: 'application/json',
+    maxTimeoutSeconds: 300, // 5 minutes
+    extra: {
+      name: 'USDC',
+      version: '2'
+    },
   };
 }

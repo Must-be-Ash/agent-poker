@@ -19,8 +19,74 @@ import {
   facilitatorConfig,
 } from '@/lib/x402-poker-config';
 import type { PokerActionType } from '@/types/poker';
-import { storeEvent } from '@/lib/events';
+import { storePokerEvent } from '@/lib/events';
 import { withSettlementLock } from '@/lib/poker/settlement-lock';
+import { progressGameIfReady } from '@/lib/poker/game-orchestrator';
+import { advanceToNextPlayer } from '@/lib/poker/turn-manager';
+import { validateAllInBet } from '@/lib/poker/all-in-logic';
+import { validateAction, getAvailableActions, getBettingConstraints } from '@/lib/poker/action-validator';
+import * as PokerLogger from '@/lib/poker/poker-logger';
+
+/**
+ * GET endpoint - Query available actions for an agent
+ * Returns what actions the agent can currently take
+ */
+export async function GET(
+  request: NextRequest,
+  { params }: { params: Promise<{ gameId: string }> }
+) {
+  const { gameId } = await params;
+
+  try {
+    const agentId = request.headers.get('X-Agent-ID') || 'unknown';
+
+    // Get current game state
+    const gameRecord = await getPokerGame(gameId);
+    if (!gameRecord) {
+      return NextResponse.json({ error: 'Game not found' }, { status: 404 });
+    }
+
+    // Get player
+    const player = gameRecord.players.find((p) => p.agentId === agentId);
+    if (!player) {
+      return NextResponse.json({ error: `Player ${agentId} not found in game` }, { status: 404 });
+    }
+
+    // Get available actions
+    const availableActions = getAvailableActions(gameRecord, agentId);
+    const constraints = getBettingConstraints(gameRecord, player);
+    const currentPlayer = gameRecord.players[gameRecord.currentPlayerIndex];
+
+    return NextResponse.json({
+      success: true,
+      gameId,
+      agentId,
+      isYourTurn: currentPlayer.agentId === agentId,
+      currentPlayer: {
+        agentId: currentPlayer.agentId,
+        agentName: currentPlayer.agentName,
+      },
+      availableActions,
+      bettingConstraints: constraints,
+      gameState: {
+        bettingRound: gameRecord.bettingRound,
+        pot: gameRecord.pot,
+        currentBet: gameRecord.currentBet,
+        yourChips: player.chipStack,
+        yourCurrentBet: player.currentBet,
+      },
+    });
+  } catch (error: unknown) {
+    console.error(`❌ [${gameId}] Error getting available actions:`, error);
+    return NextResponse.json(
+      {
+        error: 'Failed to get available actions',
+        details: error instanceof Error ? error.message : String(error),
+      },
+      { status: 500 }
+    );
+  }
+}
 
 export async function POST(
   request: NextRequest,
@@ -59,26 +125,54 @@ export async function POST(
       return NextResponse.json({ error: 'Game not found' }, { status: 404 });
     }
 
-    // Check if game has ended
-    if (gameRecord.gameStatus === 'ended') {
-      return NextResponse.json({ error: 'Game has ended' }, { status: 410 });
-    }
+    // Get player for logging
+    const playerForLogging = gameRecord.players.find((p) => p.agentId === agentId);
+    const playerName = playerForLogging?.agentName || agentId;
 
-    // Reconstruct PokerGame instance from database state
-    // (We'll need to handle this differently - for now, validate manually)
-    const player = gameRecord.players.find((p) => p.agentId === agentId);
-    if (!player) {
-      return NextResponse.json({ error: `Player ${agentId} not found in game` }, { status: 404 });
-    }
-
-    // Validate it's this player's turn
-    const currentPlayer = gameRecord.players[gameRecord.currentPlayerIndex];
-    if (currentPlayer.agentId !== agentId) {
+    // Check if player has already folded
+    if (playerForLogging && playerForLogging.status === 'folded') {
+      PokerLogger.logActionFailed(gameId, agentId, playerName, actionType, 'Already folded');
       return NextResponse.json(
-        { error: `Not your turn. Waiting for ${currentPlayer.agentName}` },
+        {
+          error: 'Cannot act - you have already folded this hand',
+          details: 'You folded earlier in this hand and cannot take further actions',
+          hint: 'Wait for the current hand to complete and a new hand to begin',
+          yourStatus: 'folded',
+        },
         { status: 400 }
       );
     }
+
+    // Log action attempt
+    PokerLogger.logActionAttempt(gameId, agentId, playerName, actionType, amount);
+
+    // Validate the action (comprehensive validation)
+    const validation = validateAction(gameRecord, agentId, actionType, amount);
+    if (!validation.valid) {
+      PokerLogger.logActionFailed(gameId, agentId, playerName, actionType, validation.error || 'Unknown');
+
+      // Include available actions and betting constraints for helpful error messages
+      const availableActions = getAvailableActions(gameRecord, agentId);
+      const player = gameRecord.players.find((p) => p.agentId === agentId);
+      const constraints = player ? getBettingConstraints(gameRecord, player) : null;
+
+      return NextResponse.json(
+        {
+          error: validation.error,
+          details: validation.details,
+          hint: validation.hint,
+          availableActions,
+          bettingConstraints: constraints,
+        },
+        { status: 400 }
+      );
+    }
+
+    // Action validated
+    PokerLogger.logActionValidated(gameId, agentId, playerName, actionType, amount);
+
+    // Get player (we know it exists from validation)
+    const player = gameRecord.players.find((p) => p.agentId === agentId)!;
 
     // Calculate payment amount required
     let paymentAmount = 0;
@@ -107,17 +201,24 @@ export async function POST(
       }
     }
 
-    // If no payment header but payment required, return 402
-    if (requiresPayment(actionType) && !paymentHeader) {
-      const requirements = createPaymentRequirements(
+    // Create payment requirements for actions that require payment
+    let paymentRequirements;
+    if (requiresPayment(actionType)) {
+      paymentRequirements = createPaymentRequirements(
         paymentAmount,
         actionType,
         `${actionType} ${formatPaymentAmount(paymentAmount)} in ${gameId}`
       );
+    }
 
-      console.log(`💳 [${agentId}] Payment required for ${actionType}: ${formatPaymentAmount(paymentAmount)}`);
+    // If no payment header but payment required, return 402
+    if (requiresPayment(actionType) && !paymentHeader) {
+      PokerLogger.logPaymentRequired(gameId, agentId, playerName, paymentAmount, actionType);
 
-      return NextResponse.json(requirements, {
+      return NextResponse.json({
+        x402Version: 1,
+        accepts: [paymentRequirements],
+      }, {
         status: 402,
         headers: {
           'X-Payment-Required': 'true',
@@ -131,25 +232,96 @@ export async function POST(
       // Verify and settle payment if required
       let settlementResult;
       if (requiresPayment(actionType) && paymentHeader) {
-        console.log(`🔍 [${agentId}] Verifying payment for ${actionType}...`);
+        PokerLogger.logPaymentVerifying(gameId, agentId, playerName, paymentAmount);
 
-        // Verify payment with facilitator
-        const payload: PaymentPayload = JSON.parse(
-          Buffer.from(paymentHeader, 'base64').toString()
-        );
+        try {
+          // Get wallet client for verification/settlement
+          const walletClient = await getServerWalletClient();
 
-        const verification = await verify(payload, facilitatorConfig.url);
-        if (!verification.valid) {
-          throw new Error('Payment verification failed');
+          // Verify payment with facilitator
+          const payload: PaymentPayload = JSON.parse(
+            Buffer.from(paymentHeader, 'base64').toString()
+          );
+
+          // Verify payment (without minAmountRequired, matching agent-bid pattern)
+          const verification = await verify(walletClient as any, payload, paymentRequirements!);
+          if (!verification.isValid) {
+            const reason = verification.invalidReason || 'Unknown reason';
+            console.error(`❌ [${gameId}] Facilitator rejected payment:`, reason);
+            console.error(`   Payment Requirements:`, JSON.stringify(paymentRequirements, null, 2));
+            PokerLogger.logPaymentFailed(gameId, agentId, playerName, paymentAmount, `Verification failed: ${reason}`);
+            return NextResponse.json(
+              {
+                error: 'Payment verification failed',
+                details: `Facilitator: ${reason}`,
+                retryable: true,
+                hint: 'Please retry your action with a new payment authorization',
+              },
+              { status: 402 }
+            );
+          }
+
+          PokerLogger.logPaymentVerified(gameId, agentId, playerName, paymentAmount);
+
+          // Settle payment on-chain
+          PokerLogger.logPaymentSettling(gameId, agentId, playerName, paymentAmount);
+          settlementResult = await settle(walletClient as any, payload, paymentRequirements!);
+
+          PokerLogger.logPaymentSettled(gameId, agentId, playerName, paymentAmount, settlementResult.transaction);
+        } catch (error: unknown) {
+          const errorMessage = error instanceof Error ? error.message : String(error);
+          console.error(`❌ [${agentId}] Payment processing failed:`, errorMessage);
+
+          // Check if it's an insufficient balance error
+          if (errorMessage.includes('insufficient') || errorMessage.includes('balance')) {
+            // Mark player as out of game due to insufficient funds
+            const updatedPlayers = gameRecord.players.map((p) =>
+              p.agentId === agentId ? { ...p, status: 'out' as const } : p
+            );
+
+            await updateGameState(gameId, { players: updatedPlayers });
+
+            await storePokerEvent(gameId, 'action_taken', {
+              gameId,
+              handNumber: gameRecord.handNumber,
+              bettingRound: gameRecord.bettingRound,
+              agentId,
+              agentName: player.agentName,
+              action: 'fold',
+              reason: 'insufficient_funds',
+              chipStackAfter: player.chipStack,
+              potAfter: gameRecord.pot,
+              currentBetAfter: gameRecord.currentBet,
+            });
+
+            console.log(`⚠️ [${agentId}] Marked as OUT due to insufficient USDC balance`);
+
+            // Progress game since player is now out
+            await advanceToNextPlayer(gameId);
+            await progressGameIfReady(gameId);
+
+            return NextResponse.json(
+              {
+                error: 'Insufficient USDC balance',
+                details: 'You do not have enough USDC to make this bet. You have been marked as out of the game.',
+                retryable: false,
+                playerStatus: 'out',
+              },
+              { status: 402 }
+            );
+          }
+
+          // Generic payment failure
+          return NextResponse.json(
+            {
+              error: 'Payment processing failed',
+              details: errorMessage,
+              retryable: true,
+              hint: 'Please check your wallet balance and try again',
+            },
+            { status: 402 }
+          );
         }
-
-        console.log(`✅ [${agentId}] Payment verified`);
-
-        // Settle payment on-chain
-        const walletClient = await getServerWalletClient();
-        settlementResult = await settle(payload, walletClient as any, facilitatorConfig.url);
-
-        console.log(`💰 [${agentId}] Payment settled: ${settlementResult.hash}`);
       }
 
       // Process the action and update game state
@@ -176,8 +348,10 @@ export async function POST(
           updatedPlayers[playerIndex].totalBetThisHand += paymentAmount;
           gameRecord.pot += paymentAmount;
 
+          // Check if player is all-in after this call
           if (updatedPlayers[playerIndex].chipStack === 0) {
             updatedPlayers[playerIndex].status = 'all-in';
+            console.log(`   💥 ${player.agentName} is ALL-IN after calling`);
           }
           break;
 
@@ -189,8 +363,10 @@ export async function POST(
           gameRecord.pot += paymentAmount;
           gameRecord.currentBet = updatedPlayers[playerIndex].currentBet;
 
+          // Check if player is all-in after this bet/raise
           if (updatedPlayers[playerIndex].chipStack === 0) {
             updatedPlayers[playerIndex].status = 'all-in';
+            console.log(`   💥 ${player.agentName} is ALL-IN with ${actionType}`);
           }
           break;
       }
@@ -217,21 +393,55 @@ export async function POST(
         updatedAt: new Date(),
       });
 
-      // Broadcast action event
-      await storeEvent(gameId, 'action_taken', {
+      // Broadcast poker action event
+      await storePokerEvent(gameId, 'action_taken', {
+        gameId,
+        handNumber: gameRecord.handNumber,
+        bettingRound: gameRecord.bettingRound,
         agentId,
         agentName: player.agentName,
         action: actionType,
         amount: paymentAmount,
-        pot: gameRecord.pot,
-        bettingRound: gameRecord.bettingRound,
+        chipStackAfter: updatedPlayers[playerIndex].chipStack,
+        potAfter: gameRecord.pot,
+        currentBetAfter: gameRecord.currentBet,
       });
 
-      console.log(`✅ [${agentId}] ${actionType}${amount ? ` ${amount}` : ''} - Pot: ${gameRecord.pot}`);
+      // Log action completed
+      PokerLogger.logActionCompleted(gameId, agentId, playerName, actionType, {
+        pot: gameRecord.pot,
+        currentBet: gameRecord.currentBet,
+        playerChips: updatedPlayers[playerIndex].chipStack,
+      });
 
-      // TODO: Check if betting round is complete and advance
-      // TODO: Check if hand is complete and determine winner
-      // This will be implemented when we integrate the full PokerGame class
+      // Log pot update if payment was made
+      if (paymentAmount > 0) {
+        PokerLogger.logPotUpdate(
+          gameId,
+          gameRecord.handNumber,
+          paymentAmount,
+          playerName,
+          gameRecord.pot
+        );
+      }
+
+      // Advance to next player's turn
+      await advanceToNextPlayer(gameId);
+
+      // Automatically progress game if betting round is complete
+      const progression = await progressGameIfReady(gameId);
+      if (progression.bettingRoundAdvanced) {
+        console.log(`   ⚡ Game auto-progressed to next betting round`);
+      }
+      if (progression.showdownInitiated) {
+        console.log(`   ⚡ Showdown auto-initiated`);
+      }
+      if (progression.newHandStarted) {
+        console.log(`   ⚡ New hand auto-started`);
+      }
+      if (progression.gameEnded) {
+        console.log(`   ⚡ Game ended`);
+      }
 
       return NextResponse.json({
         success: true,
@@ -245,7 +455,7 @@ export async function POST(
         },
         settlement: settlementResult
           ? {
-              hash: settlementResult.hash,
+              hash: settlementResult.transaction,
               verified: true,
             }
           : undefined,

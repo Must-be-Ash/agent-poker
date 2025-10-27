@@ -6,7 +6,6 @@
 import axios from 'axios';
 import { withPaymentInterceptor } from 'x402-axios';
 import { FunctionTool } from 'llamaindex';
-import type { WalletClient } from 'viem';
 
 // ============================================================================
 // TYPES
@@ -73,7 +72,8 @@ export interface ActionResponse {
  * @param context - Agent context with wallet, server URL, etc.
  * @returns Array of FunctionTools for LlamaIndex agent
  */
-export function createPokerTools(context: PokerToolContext): FunctionTool[] {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export function createPokerTools(context: PokerToolContext): FunctionTool<any, any>[] {
   return [
     createGetGameStateTool(context),
     createCheckTool(context),
@@ -92,7 +92,8 @@ export function createPokerTools(context: PokerToolContext): FunctionTool[] {
  * Get Game State Tool
  * Returns current visible game information for the agent
  */
-function createGetGameStateTool(context: PokerToolContext): FunctionTool {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function createGetGameStateTool(context: PokerToolContext): FunctionTool<any, any> {
   return FunctionTool.from(
     async (input: { gameId: string }) => {
       console.log(`\n🎲 [${context.agentName}] Getting game state for ${input.gameId}...`);
@@ -159,7 +160,8 @@ function createGetGameStateTool(context: PokerToolContext): FunctionTool {
  * Check Tool
  * Pass the action without betting (only valid when no bet to call)
  */
-function createCheckTool(context: PokerToolContext): FunctionTool {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function createCheckTool(context: PokerToolContext): FunctionTool<any, any> {
   return FunctionTool.from(
     async (input: { gameId: string; reasoning: string }) => {
       console.log(`\n✋ [${context.agentName}] Checking...`);
@@ -230,7 +232,8 @@ function createCheckTool(context: PokerToolContext): FunctionTool {
  * Call Tool
  * Match the current bet (requires x402 payment)
  */
-function createCallTool(context: PokerToolContext): FunctionTool {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function createCallTool(context: PokerToolContext): FunctionTool<any, any> {
   return FunctionTool.from(
     async (input: { gameId: string; reasoning: string }) => {
       console.log(`\n📞 [${context.agentName}] Calling...`);
@@ -305,7 +308,8 @@ function createCallTool(context: PokerToolContext): FunctionTool {
  * Bet Tool
  * Initiate a bet (requires x402 payment)
  */
-function createBetTool(context: PokerToolContext): FunctionTool {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function createBetTool(context: PokerToolContext): FunctionTool<any, any> {
   return FunctionTool.from(
     async (input: { gameId: string; amount: number; reasoning: string }) => {
       console.log(`\n💰 [${context.agentName}] Betting ${input.amount} USDC...`);
@@ -396,7 +400,8 @@ function createBetTool(context: PokerToolContext): FunctionTool {
  * Raise Tool
  * Increase the current bet (requires x402 payment)
  */
-function createRaiseTool(context: PokerToolContext): FunctionTool {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function createRaiseTool(context: PokerToolContext): FunctionTool<any, any> {
   return FunctionTool.from(
     async (input: { gameId: string; amount: number; reasoning: string }) => {
       console.log(`\n📈 [${context.agentName}] Raising to ${input.amount} USDC...`);
@@ -487,7 +492,8 @@ function createRaiseTool(context: PokerToolContext): FunctionTool {
  * Fold Tool
  * Forfeit the hand (no payment required)
  */
-function createFoldTool(context: PokerToolContext): FunctionTool {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function createFoldTool(context: PokerToolContext): FunctionTool<any, any> {
   return FunctionTool.from(
     async (input: { gameId: string; reasoning: string }) => {
       console.log(`\n🏳️ [${context.agentName}] Folding...`);

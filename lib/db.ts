@@ -1,5 +1,6 @@
 import { MongoClient, Db } from 'mongodb';
 import { BidRecord, AuctionEvent } from '@/types';
+import type { PokerEvent, PokerEventType } from './poker-events';
 
 let client: MongoClient;
 let db: Db;
@@ -198,4 +199,121 @@ export async function getEventsSince(
     .toArray();
 
   return events;
+}
+
+// ============================================================================
+// POKER EVENT STORAGE
+// ============================================================================
+
+/**
+ * MongoDB document for poker events
+ */
+export interface PokerEventDocument {
+  gameId: string;
+  type: PokerEventType;
+  data: Record<string, unknown>;
+  timestamp: Date;
+  sequence: number;
+  createdAt: Date;
+}
+
+/**
+ * Store a poker event to MongoDB for a game
+ * @param gameId - Game identifier
+ * @param eventType - Type of poker event
+ * @param data - Event data payload
+ * @returns Sequence number of the stored event
+ */
+export async function storePokerEvent(
+  gameId: string,
+  eventType: PokerEventType,
+  data: Record<string, unknown>
+): Promise<number> {
+  console.log(`📝 [POKER EVENT] storePokerEvent called: ${eventType} for ${gameId}`);
+  console.log(`   Data:`, JSON.stringify(data));
+
+  const { db } = await connectToDatabase();
+
+  // Get the next sequence number for this game
+  const lastEvent = await db.collection<PokerEventDocument>('pokerEvents')
+    .findOne(
+      { gameId },
+      { sort: { sequence: -1 } }
+    );
+
+  const sequence = (lastEvent?.sequence ?? -1) + 1;
+
+  const event: Omit<PokerEventDocument, '_id'> = {
+    gameId,
+    type: eventType,
+    data: { ...data, timestamp: new Date() },
+    timestamp: new Date(),
+    sequence,
+    createdAt: new Date(),
+  };
+
+  console.log(`📝 [POKER EVENT] Inserting event with sequence ${sequence}`);
+  await db.collection('pokerEvents').insertOne(event);
+
+  console.log(`✅ [POKER EVENT] Stored ${eventType} for ${gameId} (seq: ${sequence})`);
+
+  return sequence;
+}
+
+/**
+ * Get poker events for a game since a specific sequence number
+ * @param gameId - Game identifier
+ * @param afterSequence - Get events after this sequence number (default: -1 = all events)
+ * @returns Array of poker events sorted by sequence
+ */
+export async function getPokerEventsSince(
+  gameId: string,
+  afterSequence: number = -1
+): Promise<PokerEventDocument[]> {
+  const { db } = await connectToDatabase();
+
+  const events = await db.collection<PokerEventDocument>('pokerEvents')
+    .find({
+      gameId,
+      sequence: { $gt: afterSequence }
+    })
+    .sort({ sequence: 1 })
+    .toArray();
+
+  return events;
+}
+
+/**
+ * Get all poker events for a game
+ * @param gameId - Game identifier
+ * @returns Array of all poker events sorted by sequence
+ */
+export async function getAllPokerEvents(gameId: string): Promise<PokerEventDocument[]> {
+  return getPokerEventsSince(gameId, -1);
+}
+
+/**
+ * Create indexes for poker events collection
+ * Should be called during application setup
+ */
+export async function createPokerEventIndexes(): Promise<void> {
+  const { db } = await connectToDatabase();
+
+  const collection = db.collection('pokerEvents');
+
+  await Promise.all([
+    // Primary lookup by gameId
+    collection.createIndex({ gameId: 1 }, { name: 'idx_poker_gameId' }),
+
+    // Compound index for efficient sequence queries
+    collection.createIndex(
+      { gameId: 1, sequence: 1 },
+      { name: 'idx_poker_game_sequence' }
+    ),
+
+    // Index for timestamp-based queries
+    collection.createIndex({ createdAt: -1 }, { name: 'idx_poker_createdAt' }),
+  ]);
+
+  console.log('✅ Created poker event indexes');
 }

@@ -259,15 +259,16 @@ Adapt the AI agents to play poker with strategic decision-making.
   - Hide opponent's hole cards
   - ✅ Completed: Created server endpoint at app/api/poker/[gameId]/state/route.ts that returns filtered game state. Includes player's hole cards, community cards, pot, chip stacks, current bets, legal actions, position info, pot odds calculation, and minimum raise. Opponent hole cards are hidden (set to null). Provides comprehensive game context for AI decision-making.
 
-- [ ] **4.3: Implement betting action tools**
+- [x] **4.3: Implement betting action tools**
   - Tools: `check`, `call`, `bet`, `raise`, `fold`
   - Each tool:
     1. Validates action is legal
     2. If payment needed: Uses x402-axios to create payment
     3. Sends request to `/api/poker/[gameId]/action`
     4. Returns result + updated game state
+  - ✅ Completed: All betting action tools were implemented in Task 4.1 (agents/shared/poker-tools.ts). Tools correctly use regular axios for free actions (check, fold) and x402-enabled axios for paid actions (call, bet, raise). All send requests to the action endpoint created in Task 3.2. Server-side validation handles action legality. Tools return JSON stringified results with success/error states.
 
-- [ ] **4.4: Create poker strategy prompt**
+- [x] **4.4: Create poker strategy prompt**
   - File: `agents/shared/poker-system-prompt.ts`
   - System prompt for Claude:
     - Explain poker rules (Texas Hold'em)
@@ -276,8 +277,9 @@ Adapt the AI agents to play poker with strategic decision-making.
     - Encourage strategic thinking (position, stack sizes, opponent patterns)
     - Allow for bluffing and deception
     - Define agent's playing style (tight-aggressive, loose-passive, etc.)
+  - ✅ Completed: Created comprehensive 296-line poker strategy prompt with 10 major sections including Texas Hold'em rules, hand rankings, mathematical concepts (pot odds, EV, outs), strategic thinking (position, hand selection, stack sizes, opponent patterns, bluffing), playing style personalities (tight-aggressive, loose-aggressive, tight-passive, loose-passive), critical execution requirements, decision-making process with 6 steps, and 4 example scenarios. Includes createPokerStrategyPrompt() function that personalizes prompt based on agent personality, and POKER_PERSONALITIES constants for different playing styles.
 
-- [ ] **4.5: Implement poker agent class**
+- [x] **4.5: Implement poker agent class**
   - File: `agents/shared/poker-agent.ts`
   - Class: `PokerAgent`
   - Based on `IntelligentBiddingAgent` structure
@@ -287,8 +289,9 @@ Adapt the AI agents to play poker with strategic decision-making.
     3. Execute action via tool
     4. Monitor chip stack changes
   - Handle game-over condition
+  - ✅ Completed: Created PokerAgent class (368 lines) with complete poker agent implementation. Includes wallet client setup, x402 payment integration, LlamaIndex agent creation with poker tools, polling mechanism (default 2s interval, configurable), game state fetching, turn detection, AI decision-making with strategy prompt, chip stack monitoring, event emission for observability, and graceful game-over handling. Agent creates fresh LlamaIndex instance for each decision to avoid cached tool responses.
 
-- [ ] **4.6: Create agent instances**
+- [x] **4.6: Create agent instances**
   - File: `agents/pokerAgentA.ts`
   - File: `agents/pokerAgentB.ts`
   - Load config from environment:
@@ -296,13 +299,15 @@ Adapt the AI agents to play poker with strategic decision-making.
     - Playing style personality
     - Risk tolerance
   - Start agent and connect to game
+  - ✅ Completed: Created pokerAgentA.ts and pokerAgentB.ts (58 lines each) that load configuration from environment variables, instantiate PokerAgent class with personality settings, and start playing. Agent A defaults to TIGHT_AGGRESSIVE style, Agent B defaults to LOOSE_AGGRESSIVE style. Added npm scripts "poker:a" and "poker:b" to package.json. Updated agents/.env.example with poker configuration variables (private keys, names, playing styles, game ID, polling interval).
 
-- [ ] **4.7: Add thinking/reflection broadcasts**
+- [x] **4.7: Add thinking/reflection broadcasts**
   - Before each action: Agent broadcasts "thinking" event (strategy reasoning)
   - After each action: Agent broadcasts "reflection" event (outcome analysis)
   - Integrate with SSE system for UI display
+  - ✅ Completed: Enhanced poker-agent.ts (now 437 lines) with thinking and reflection broadcasts. Agent now emits 'agent_thinking' before decisions, 'agent_decision_complete' with AI reasoning, and new 'agent_reflection' after actions with outcome analysis. Created generateReflection() method that uses LLM to generate brief (1-2 sentence) reflections on actions taken. Created event emit endpoint at app/api/events/[gameId]/emit/route.ts for poker agents to post events to the event system.
 
-- [ ] **4.8: Update environment variables**
+- [x] **4.8: Update environment variables**
   - File: `agents/.env.example`
   - Add poker-specific configs:
     ```bash
@@ -314,6 +319,7 @@ Adapt the AI agents to play poker with strategic decision-making.
     AGENT_A_STYLE=tight-aggressive
     AGENT_B_STYLE=loose-passive
     ```
+  - ✅ Completed: Added poker configuration variables to all .env files. Updated agents/.env and agents/.env.example with POKER_GAME_ID, POKER_POLLING_INTERVAL, POKER_AGENT_A_STYLE, POKER_AGENT_B_STYLE. Added server-side poker configuration to .env.local and .env.example with STARTING_CHIPS_USDC=1000, SMALL_BLIND_USDC=5, BIG_BLIND_USDC=10 (matching what x402-poker-config.ts expects). All environment variables now properly configured for poker game initialization.
 
 ---
 
@@ -323,7 +329,7 @@ Adapt SSE streaming for poker events (deal, bet, fold, showdown).
 
 #### Tasks
 
-- [ ] **5.1: Define poker event types**
+- [x] **5.1: Define poker event types**
   - File: `lib/poker-events.ts`
   - Event types:
     - `hand_started`: New hand dealt
@@ -334,22 +340,26 @@ Adapt SSE streaming for poker events (deal, bet, fold, showdown).
     - `showdown`: Players reveal cards
     - `hand_complete`: Winner determined, chips awarded
     - `game_ended`: One player out of chips
+  - ✅ Completed: Created comprehensive poker-events.ts with 11 event types, TypeScript interfaces, helper functions, SSE formatting utilities, and validation
 
-- [ ] **5.2: Update event broadcaster**
+- [x] **5.2: Update event broadcaster**
   - File: `lib/events.ts` (extend existing)
   - Add poker-specific event emission
   - Namespace by `gameId` instead of `basename`
+  - ✅ Completed: Added storePokerEvent, broadcastPokerEvent, emitPokerEvent to lib/events.ts. Created storePokerEvent, getPokerEventsSince, getAllPokerEvents, createPokerEventIndexes in lib/db.ts. Maintains backward compatibility with auction events.
 
-- [ ] **5.3: Create poker SSE endpoint**
-  - File: `app/api/poker/stream/[gameId]/route.ts`
+- [x] **5.3: Create poker SSE endpoint**
+  - File: `app/api/poker/events/[gameId]/route.ts` (changed from SSE to polling)
   - Similar to existing `/api/stream/[basename]/route.ts`
   - Subscribe to poker events for specific game
   - Send Server-Sent Events to connected clients
+  - ✅ Completed: Created polling endpoint at app/api/poker/events/[gameId]/route.ts. Uses 1-second polling instead of SSE (simpler, adequate for game pace). Returns events since last sequence number.
 
-- [ ] **5.4: Integrate event broadcasts in game flow**
+- [x] **5.4: Integrate event broadcasts in game flow**
   - In poker action endpoint: Emit events after each action
   - In game engine: Emit events when advancing rounds
   - In payout logic: Emit winner/payout events
+  - ✅ Completed: Updated app/api/poker/[gameId]/action/route.ts (action_taken events), lib/poker/payout.ts (hand_complete, game_ended events), app/api/poker/[gameId]/blind/route.ts (blind_posted events). Agents emit agent_thinking, agent_decision_complete, agent_reflection via app/api/events/[gameId]/emit/route.ts
 
 ---
 
@@ -359,52 +369,59 @@ Build a real-time poker table interface to visualize the game.
 
 #### Tasks
 
-- [ ] **6.1: Create poker game page**
+- [x] **6.1: Create poker game page**
   - File: `app/poker/[gameId]/page.tsx`
   - Route: `/poker/game-001`
   - Layout: Poker table view (visual representation)
+  - ✅ Completed: Created comprehensive poker game page with event polling, game state management, header display, player status bar, community cards, and iMessage-style event feed
 
-- [ ] **6.2: Design poker table component**
-  - File: `components/PokerTable.tsx`
+- [x] **6.2: Design poker table component**
+  - File: `components/PokerTable.tsx` (integrated into page)
   - Visual elements:
     - Two player positions (Agent A, Agent B)
     - Community cards (flop, turn, river)
     - Pot display
     - Current bet indicator
     - Dealer button position
+  - ✅ Completed: Poker table elements integrated into app/poker/[gameId]/page.tsx. Shows two players with color-coded avatars, community cards display, pot in header, current bets per player, and dealer position in hand_started events
 
-- [ ] **6.3: Create player card component**
-  - File: `components/PlayerCard.tsx`
+- [x] **6.3: Create player card component**
+  - File: `components/PlayerCard.tsx` (integrated into page)
   - Shows:
     - Agent name
     - Chip stack
     - Current bet this round
     - Status (active, folded, all-in)
     - Hole cards (revealed at showdown or for debugging)
+  - ✅ Completed: Player information integrated into page status bar. Shows agent name, chip stack, current bet, status, and hole cards (TV poker style - always visible with suit symbols ♠♥♦♣)
 
-- [ ] **6.4: Create action history feed**
-  - File: `components/ActionHistory.tsx`
+- [x] **6.4: Create action history feed**
+  - File: `components/ActionHistory.tsx` (integrated into page)
   - iMessage-style chat (similar to current auction UI)
   - Show:
     - Thinking bubbles (agent's reasoning)
     - Action announcements ("Agent A raises to 50")
     - Betting round transitions ("Flop dealt: 7♠ K♦ 2♣")
     - Hand results ("Agent B wins with pair of Kings")
+  - ✅ Completed: Full iMessage-style event feed integrated into page. Renders all poker events including agent_thinking (thinking bubbles), action_taken (bet/raise/call/fold), cards_dealt (betting round transitions), hand_complete (winner announcements), game_ended, blind_posted, agent_reflection, and agent_decision_complete
 
-- [ ] **6.5: Integrate SSE for live updates**
-  - Connect to `/api/poker/stream/[gameId]`
+- [x] **6.5: Integrate SSE for live updates**
+  - Connect to `/api/poker/events/[gameId]` (polling, not SSE)
   - Update UI components on each event
   - Animate card dealing, chip movements, action highlights
+  - ✅ Completed: Integrated 1-second polling to /api/poker/events/[gameId]. Updates game state from events (pot, chips, community cards, betting round). Auto-scrolls to latest events. Uses polling instead of SSE for simplicity.
 
 - [ ] **6.6: Add hand history viewer**
   - Component: `HandHistory.tsx`
   - Show past hands (from MongoDB)
   - Display: Starting stacks → actions → showdown → winner
+  - ⏸️ Not implemented: Separate feature to show historical hand data from MongoDB
 
-- [ ] **6.7: Style poker table**
+- [x] **6.7: Style poker table**
   - Use Tailwind CSS (existing in project)
   - Poker table aesthetic (green felt, card shadows)
   - Maintain grayscale theme if desired, or go full color
+  - ✅ Completed: Styled with Tailwind CSS using grayscale theme consistent with auction page. White playing cards with proper suit colors (red/black), card shadows, rounded corners, responsive layout
 
 ---
 
@@ -414,14 +431,15 @@ Coordinate the complete poker game from start to finish.
 
 #### Tasks
 
-- [ ] **7.1: Create game initialization endpoint**
+- [x] **7.1: Create game initialization endpoint**
   - File: `app/api/poker/create/route.ts`
   - POST endpoint to start new game
-  - Parameters: `agentAId`, `agentBId`, `startingChips`, `blinds`
+  - Parameters: `agentAId`, `agentBId`, `agentAAddress`, `agentBAddress`, optional `gameId`, `smallBlind`, `bigBlind`
   - Creates game in MongoDB
   - Returns `gameId`
+  - ✅ Completed: Created POST endpoint that queries real USDC wallet balances, validates minimum requirements, creates game with actual balances as starting chips, returns gameId and player info with URL to game page
 
-- [ ] **7.2: Implement hand lifecycle manager**
+- [x] **7.2: Implement hand lifecycle manager**
   - File: `lib/poker/hand-manager.ts`
   - Functions:
     - `startNewHand(gameId)` - Reset for new hand (rotate dealer, post blinds, deal cards)
@@ -429,22 +447,24 @@ Coordinate the complete poker game from start to finish.
     - `advanceToNextRound(gameId)` - Deal flop/turn/river
     - `initiateShowdown(gameId)` - Compare hands
     - `checkGameOver(gameId)` - See if player is out of chips
+  - ✅ Completed: Created comprehensive hand lifecycle manager (301 lines) with all 5 required functions. Handles dealer rotation, card dealing with hole cards broadcast, betting round completion detection, community card dealing (flop/turn/river), showdown initiation with payout integration, and game-over detection. Broadcasts all appropriate events (hand_started with hole cards, cards_dealt, betting_round_complete, showdown)
 
-- [ ] **7.3: Build automatic game progression**
+- [x] **7.3: Build automatic game progression**
   - Server-side logic that:
     - Monitors when all players have acted in a betting round
     - Automatically advances to next round (deal community cards)
     - Triggers showdown when betting is complete
     - Starts new hand after previous hand ends
     - Ends game when one player has all chips
+  - ✅ Completed: Created game-orchestrator.ts (168 lines) with progressGameIfReady() function that automatically checks game state after each action and progresses accordingly. Integrated into action endpoint to auto-advance betting rounds, trigger showdown after river, start new hands after completion, and detect game over. Also created initializeGame() to start first hand when game is created. Handles all edge cases including all players folding.
 
-- [ ] **7.4: Implement turn management**
+- [x] **7.4: Implement turn management**
   - Track whose turn it is
   - Enforce turn order (small blind → big blind → dealer)
   - Timeout handling: If agent doesn't act within 30s, auto-fold
   - Broadcast "action required" events to prompt agents
 
-- [ ] **7.5: Create game monitoring dashboard**
+- [x] **7.5: Create game monitoring dashboard**
   - File: `app/poker/admin/page.tsx`
   - Show all active games
   - Allow manual game control (pause, reset, end)
@@ -458,35 +478,35 @@ Handle poker-specific edge cases and error scenarios.
 
 #### Tasks
 
-- [ ] **8.1: Implement all-in logic**
+- [x] **8.1: Implement all-in logic** ✅
   - Allow player to bet all remaining chips
   - Create side pots for all-in situations
   - Handle multiple all-ins in same hand
   - Distribute side pots correctly at showdown
 
-- [ ] **8.2: Handle disconnections**
+- [x] **8.2: Handle disconnections** ✅
   - If agent disconnects: Auto-fold after timeout
   - If agent reconnects: Resume from current state
   - Persist game state to survive server restarts
 
-- [ ] **8.3: Payment failure handling**
+- [x] **8.3: Payment failure handling** ✅
   - If x402 payment fails:
     - Do not advance game state
     - Return error to agent
     - Allow retry
   - If agent runs out of USDC: Mark as out of game
 
-- [ ] **8.4: Validate all actions**
+- [x] **8.4: Validate all actions** ✅
   - Check player has sufficient chips for bet/raise
   - Check it's player's turn
   - Check action is valid for current bet (can't check if bet exists)
   - Return descriptive errors for invalid actions
 
-- [ ] **8.5: Handle showdown ties**
+- [x] **8.5: Handle showdown ties** ✅
   - If multiple players have same hand: Split pot evenly
   - Handle odd chip (goes to player closest to dealer)
 
-- [ ] **8.6: Add comprehensive logging**
+- [x] **8.6: Add comprehensive logging** ✅
   - Log every action to console with gameId prefix
   - Log payment verifications
   - Log pot calculations

@@ -16,7 +16,7 @@ import {
   createPaymentRequirements,
   facilitatorConfig,
 } from '@/lib/x402-poker-config';
-import { storeEvent } from '@/lib/events';
+import { storePokerEvent } from '@/lib/events';
 import { withSettlementLock } from '@/lib/poker/settlement-lock';
 
 export async function POST(
@@ -98,17 +98,21 @@ export async function POST(
       );
     }
 
+    // Create payment requirements
+    const paymentRequirements = createPaymentRequirements(
+      blindAmount,
+      blindType === 'small' ? 'bet' : 'bet', // Use 'bet' action type for blinds
+      `${blindType === 'small' ? 'Small' : 'Big'} blind ${formatPaymentAmount(blindAmount)} for hand #${game.handNumber + 1}`
+    );
+
     // If no payment header, return 402
     if (!paymentHeader) {
-      const requirements = createPaymentRequirements(
-        blindAmount,
-        blindType === 'small' ? 'bet' : 'bet', // Use 'bet' action type for blinds
-        `${blindType === 'small' ? 'Small' : 'Big'} blind ${formatPaymentAmount(blindAmount)} for hand #${game.handNumber + 1}`
-      );
-
       console.log(`💳 [Blind] ${player.agentName} needs to post ${blindType} blind: ${formatPaymentAmount(blindAmount)}`);
 
-      return NextResponse.json(requirements, {
+      return NextResponse.json({
+        x402Version: 1,
+        accepts: [paymentRequirements],
+      }, {
         status: 402,
         headers: {
           'X-Payment-Required': 'true',
@@ -122,23 +126,76 @@ export async function POST(
     return await withSettlementLock(gameId, `blind_${blindType}`, agentId, async () => {
       console.log(`🔍 [Blind] Verifying ${blindType} blind payment from ${player.agentName}...`);
 
-      // Verify payment
-      const payload: PaymentPayload = JSON.parse(
-        Buffer.from(paymentHeader, 'base64').toString()
-      );
+      let settlementResult;
 
-      const verification = await verify(payload, facilitatorConfig.url);
-      if (!verification.valid) {
-        throw new Error('Blind payment verification failed');
+      try {
+        // Get wallet client for verification/settlement
+        const walletClient = await getServerWalletClient();
+
+        // Verify payment
+        const payload: PaymentPayload = JSON.parse(
+          Buffer.from(paymentHeader, 'base64').toString()
+        );
+
+        // Verify payment (without minAmountRequired, matching agent-bid pattern)
+        const verification = await verify(walletClient as any, payload, paymentRequirements);
+        if (!verification.isValid) {
+          const reason = verification.invalidReason || 'Unknown reason';
+          console.error(`❌ [Blind] Payment verification failed for ${player.agentName}: ${reason}`);
+          return NextResponse.json(
+            {
+              error: 'Blind payment verification failed',
+              details: `Facilitator: ${reason}`,
+              retryable: true,
+              hint: 'Please retry posting the blind with a new payment authorization',
+            },
+            { status: 402 }
+          );
+        }
+
+        console.log(`✅ [Blind] Payment verified`);
+
+        // Settle payment on-chain
+        settlementResult = await settle(walletClient as any, payload, paymentRequirements);
+
+        console.log(`💰 [Blind] Payment settled: ${settlementResult.transaction}`);
+      } catch (error: unknown) {
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        console.error(`❌ [Blind] Payment processing failed for ${player.agentName}:`, errorMessage);
+
+        // Check if it's an insufficient balance error
+        if (errorMessage.includes('insufficient') || errorMessage.includes('balance')) {
+          // Mark player as out of game due to insufficient funds
+          const updatedPlayers = game.players.map((p) =>
+            p.agentId === agentId ? { ...p, status: 'out' as const } : p
+          );
+
+          await updateGameState(gameId, { players: updatedPlayers });
+
+          console.log(`⚠️ [Blind] ${player.agentName} marked as OUT due to insufficient USDC for blind`);
+
+          return NextResponse.json(
+            {
+              error: 'Insufficient USDC balance for blind',
+              details: `You do not have enough USDC to post the ${blindType} blind (${blindAmount} USDC required). You have been marked as out of the game.`,
+              retryable: false,
+              playerStatus: 'out',
+            },
+            { status: 402 }
+          );
+        }
+
+        // Generic payment failure
+        return NextResponse.json(
+          {
+            error: 'Blind payment processing failed',
+            details: errorMessage,
+            retryable: true,
+            hint: 'Please check your wallet balance and try again',
+          },
+          { status: 402 }
+        );
       }
-
-      console.log(`✅ [Blind] Payment verified`);
-
-      // Settle payment on-chain
-      const walletClient = await getServerWalletClient();
-      const settlementResult = await settle(payload, walletClient as any, facilitatorConfig.url);
-
-      console.log(`💰 [Blind] Payment settled: ${settlementResult.hash}`);
 
       // Update game state
       const updatedPlayers = game.players.map((p) => {
@@ -167,14 +224,14 @@ export async function POST(
       await recordPotContribution(gameId, agentId, blindAmount);
 
       // Broadcast blind posted event
-      await storeEvent(gameId, 'blind_posted', {
+      await storePokerEvent(gameId, 'blind_posted', {
+        gameId,
+        handNumber: game.handNumber,
         agentId,
         agentName: player.agentName,
         blindType,
         amount: blindAmount,
-        pot: newPot,
-        handNumber: game.handNumber,
-        txHash: settlementResult.hash,
+        chipStackAfter: player.chipStack - blindAmount,
       });
 
       console.log(`✅ [Blind] ${player.agentName} posted ${blindType} blind of ${blindAmount} USDC`);
@@ -186,7 +243,7 @@ export async function POST(
         pot: newPot,
         yourChips: player.chipStack - blindAmount,
         settlement: {
-          hash: settlementResult.hash,
+          hash: settlementResult.transaction,
           verified: true,
         },
       });
