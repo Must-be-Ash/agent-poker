@@ -1,1026 +1,234 @@
-    url: 'http://localhost:3000/api/poker/poker-game-1/state',
-    allowAbsoluteUrls: true,
-    data: undefined
-  },
-  request: <ref *3> ClientRequest {
-    _events: [Object: null prototype] {
-      abort: [Function (anonymous)],
-      aborted: [Function (anonymous)],
-      connect: [Function (anonymous)],
-      error: [Function (anonymous)],
-      socket: [Function (anonymous)],
-      timeout: [Function (anonymous)],
-      finish: [Function: requestOnFinish]
-    },
-    _eventsCount: 7,
-    _maxListeners: undefined,
-    outputData: [],
-    outputSize: 0,
-    writable: true,
-    destroyed: true,
-    _last: true,
-    chunkedEncoding: false,
-    shouldKeepAlive: true,
-    maxRequestsOnConnectionReached: false,
-    _defaultKeepAlive: true,
-    useChunkedEncodingByDefault: false,
-    sendDate: false,
-    _removedConnection: false,
-    _removedContLen: false,
-    _removedTE: false,
-    strictContentLength: false,
-    _contentLength: 0,
-    _hasBody: true,
-    _trailer: '',
-    finished: true,
-    _headerSent: true,
-    _closed: true,
-    _header: 'GET /api/poker/poker-game-1/state HTTP/1.1\r\n' +
-      'Accept: application/json, text/plain, */*\r\n' +
-      'X-Agent-ID: AgentA\r\n' +
-      'User-Agent: axios/1.12.2\r\n' +
-      'Accept-Encoding: gzip, compress, deflate, br\r\n' +
-      'Host: localhost:3000\r\n' +
-      'Connection: keep-alive\r\n' +
-      '\r\n',
-    _keepAliveTimeout: 0,
-    _onPendingData: [Function: nop],
-    agent: Agent {
-      _events: [Object: null prototype] {
-        free: [Function (anonymous)],
-        newListener: [Function: maybeEnableKeylog]
-      },
-      _eventsCount: 2,
-      _maxListeners: undefined,
-      options: [Object: null prototype] {
-        keepAlive: true,
-        scheduling: 'lifo',
-        timeout: 5000,
-        proxyEnv: undefined,
-        noDelay: true,
-        path: null
-      },
-      defaultPort: 80,
-      protocol: 'http:',
-      requests: [Object: null prototype] {},
-      sockets: [Object: null prototype] {},
-      freeSockets: [Object: null prototype] {
-        'localhost:3000:': [
-          Socket {
-            connecting: false,
-            _hadError: false,
-            _parent: null,
-            _host: 'localhost',
-            _closeAfterHandlingError: false,
-            _events: [Object],
-            _readableState: [ReadableState],
-            _writableState: [WritableState],
-            allowHalfOpen: false,
-            _maxListeners: undefined,
-            _eventsCount: 6,
-            _sockname: null,
-            _pendingData: null,
-            _pendingEncoding: '',
-            server: null,
-            _server: null,
-            timeout: 4000,
-            parser: null,
-            _httpMessage: null,
-            autoSelectFamilyAttemptedAddresses: [Array],
-            Symbol(async_id_symbol): -1,
-            Symbol(kHandle): [TCP],
-            Symbol(lastWriteQueueSize): 0,
-            Symbol(timeout): [Timeout],
-            Symbol(kBuffer): null,
-            Symbol(kBufferCb): null,
-            Symbol(kBufferGen): null,
-            Symbol(shapeMode): true,
-            Symbol(kCapture): false,
-            Symbol(kSetNoDelay): true,
-            Symbol(kSetKeepAlive): true,
-            Symbol(kSetKeepAliveInitialDelay): 1,
-            Symbol(kBytesRead): 0,
-            Symbol(kBytesWritten): 0
-          }
-        ]
-      },
-      keepAliveMsecs: 1000,
-      keepAlive: true,
-      maxSockets: Infinity,
-      maxFreeSockets: 256,
-      scheduling: 'lifo',
-      maxTotalSockets: Infinity,
-      totalSocketCount: 1,
-      agentKeepAliveTimeoutBuffer: 1000,
-      Symbol(shapeMode): false,
-      Symbol(kCapture): false
-    },
-    socketPath: undefined,
-    method: 'GET',
-    maxHeaderSize: undefined,
-    insecureHTTPParser: undefined,
-    joinDuplicateHeaders: undefined,
-    path: '/api/poker/poker-game-1/state',
-    _ended: true,
-    res: IncomingMessage {
-      _events: {
-        close: undefined,
-        error: [Function: handleStreamError],
-        data: [Function: handleStreamData],
-        end: [ [Function: responseOnEnd], [Function: handleStreamEnd] ],
-        readable: undefined,
-        finish: undefined,
-        aborted: [Function: handlerStreamAborted]
-      },
-      _readableState: ReadableState {
-        highWaterMark: 65536,
-        buffer: [],
-        bufferIndex: 0,
-        length: 0,
-        pipes: [],
-        awaitDrainWriters: null,
-        Symbol(kState): 194779004
-      },
-      _maxListeners: undefined,
-      socket: null,
-      httpVersionMajor: 1,
-      httpVersionMinor: 1,
-      httpVersion: '1.1',
-      complete: true,
-      rawHeaders: [
-        'vary',
-        'rsc, next-router-state-tree, next-router-prefetch, next-router-segment-prefetch',
-        'content-type',
-        'application/json',
-        'Date',
-        'Mon, 27 Oct 2025 02:00:22 GMT',
-        'Connection',
-        'keep-alive',
-        'Keep-Alive',
-        'timeout=5',
-        'Transfer-Encoding',
-        'chunked'
-      ],
-      rawTrailers: [],
-      joinDuplicateHeaders: undefined,
-      aborted: false,
-      upgrade: false,
-      url: '',
-      method: null,
-      statusCode: 404,
-      statusMessage: 'Not Found',
-      client: <ref *1> Socket {
-        connecting: false,
-        _hadError: false,
-        _parent: null,
-        _host: 'localhost',
-        _closeAfterHandlingError: false,
-        _events: {
-          close: [Function: onClose],
-          error: [Function: bound onceWrapper] {
-            listener: [Function: freeSocketErrorListener]
-          },
-          prefinish: undefined,
-          finish: undefined,
-          drain: undefined,
-          data: undefined,
-          end: [Function: onReadableStreamEnd],
-          readable: undefined,
-          connect: undefined,
-          free: [Function: onFree],
-          timeout: [Function: onTimeout],
-          agentRemove: [Function: onRemove]
-        },
-        _readableState: ReadableState {
-          highWaterMark: 65536,
-          buffer: [],
-          bufferIndex: 0,
-          length: 0,
-          pipes: [],
-          awaitDrainWriters: null,
-          Symbol(kState): 60303620
-        },
-        _writableState: WritableState {
-          highWaterMark: 65536,
-          length: 0,
-          corked: 0,
-          onwrite: [Function: bound onwrite],
-          writelen: 0,
-          bufferedIndex: 0,
-          pendingcb: 0,
-          Symbol(kState): 17563908,
-          Symbol(kBufferedValue): null,
-          Symbol(kWriteCbValue): null
-        },
-        allowHalfOpen: false,
-        _maxListeners: undefined,
-        _eventsCount: 6,
-        _sockname: null,
-        _pendingData: null,
-        _pendingEncoding: '',
-        server: null,
-        _server: null,
-        timeout: 4000,
-        parser: null,
-        _httpMessage: null,
-        autoSelectFamilyAttemptedAddresses: [ '::1:3000' ],
-        Symbol(async_id_symbol): -1,
-        Symbol(kHandle): TCP {
-          reading: true,
-          onconnection: null,
-          Symbol(owner_symbol): [Circular *1]
-        },
-        Symbol(lastWriteQueueSize): 0,
-        Symbol(timeout): <ref *2> Timeout {
-          _idleTimeout: 4000,
-          _idlePrev: TimersList {
-            _idleNext: [Circular *2],
-            _idlePrev: [Timeout],
-            expiry: 5504,
-            id: -9007199254740988,
-            msecs: 4000,
-            priorityQueuePosition: 1
-          },
-          _idleNext: Timeout {
-            _idleTimeout: 4000,
-            _idlePrev: [Circular *2],
-            _idleNext: [TimersList],
-            _idleStart: 1504,
-            _onTimeout: [Function: onParserTimeout],
-            _timerArgs: [Array],
-            _repeat: null,
-            _destroyed: false,
-            Symbol(refed): false,
-            Symbol(kHasPrimitive): false,
-            Symbol(asyncId): 65,
-            Symbol(triggerId): 63,
-            Symbol(kAsyncContextFrame): undefined
-          },
-          _idleStart: 1781,
-          _onTimeout: [Function: bound ],
-          _timerArgs: undefined,
-          _repeat: null,
-          _destroyed: false,
-          Symbol(refed): false,
-          Symbol(kHasPrimitive): false,
-          Symbol(asyncId): 94,
-          Symbol(triggerId): 92,
-          Symbol(kAsyncContextFrame): undefined
-        },
-        Symbol(kBuffer): null,
-        Symbol(kBufferCb): null,
-        Symbol(kBufferGen): null,
-        Symbol(shapeMode): true,
-        Symbol(kCapture): false,
-        Symbol(kSetNoDelay): true,
-        Symbol(kSetKeepAlive): true,
-        Symbol(kSetKeepAliveInitialDelay): 1,
-        Symbol(kBytesRead): 0,
-        Symbol(kBytesWritten): 0
-      },
-      _consuming: false,
-      _dumped: false,
-      req: [Circular *3],
-      _eventsCount: 4,
-      responseUrl: 'http://localhost:3000/api/poker/poker-game-1/state',
-      redirects: [],
-      Symbol(shapeMode): true,
-      Symbol(kCapture): false,
-      Symbol(kHeaders): {
-        vary: 'rsc, next-router-state-tree, next-router-prefetch, next-router-segment-prefetch',
-        'content-type': 'application/json',
-        date: 'Mon, 27 Oct 2025 02:00:22 GMT',
-        connection: 'keep-alive',
-        'keep-alive': 'timeout=5',
-        'transfer-encoding': 'chunked'
-      },
-      Symbol(kHeadersCount): 12,
-      Symbol(kTrailers): null,
-      Symbol(kTrailersCount): 0
-    },
-    aborted: false,
-    timeoutCb: null,
-    upgradeOrConnect: false,
-    parser: null,
-    maxHeadersCount: null,
-    reusedSocket: false,
-    host: 'localhost',
-    protocol: 'http:',
-    _redirectable: Writable {
-      _events: {
-        close: undefined,
-        error: [Function: handleRequestError],
-        prefinish: undefined,
-        finish: undefined,
-        drain: undefined,
-        response: [Function: handleResponse],
-        socket: [Function: handleRequestSocket]
-      },
-      _writableState: WritableState {
-        highWaterMark: 65536,
-        length: 0,
-        corked: 0,
-        onwrite: [Function: bound onwrite],
-        writelen: 0,
-        bufferedIndex: 0,
-        pendingcb: 0,
-        Symbol(kState): 17580812,
-        Symbol(kBufferedValue): null
-      },
-      _maxListeners: undefined,
-      _options: {
-        maxRedirects: 21,
-        maxBodyLength: Infinity,
-        protocol: 'http:',
-        path: '/api/poker/poker-game-1/state',
-        method: 'GET',
-        headers: [Object: null prototype] {
-          Accept: 'application/json, text/plain, */*',
-          'X-Agent-ID': 'AgentA',
-          'User-Agent': 'axios/1.12.2',
-          'Accept-Encoding': 'gzip, compress, deflate, br'
-        },
-        agents: { http: undefined, https: undefined },
-        auth: undefined,
-        family: undefined,
-        beforeRedirect: [Function: dispatchBeforeRedirect],
-        beforeRedirects: { proxy: [Function: beforeRedirect] },
-        hostname: 'localhost',
-        port: '3000',
-        agent: undefined,
-        nativeProtocols: {
-          'http:': {
-            _connectionListener: [Function: connectionListener],
-            METHODS: [Array],
-            STATUS_CODES: [Object],
-            Agent: [Function],
-            ClientRequest: [Function: ClientRequest],
-            IncomingMessage: [Function: IncomingMessage],
-            OutgoingMessage: [Function: OutgoingMessage],
-            Server: [Function: Server],
-            ServerResponse: [Function: ServerResponse],
-            createServer: [Function: createServer],
-            validateHeaderName: [Function],
-            validateHeaderValue: [Function],
-            get: [Function: get],
-            request: [Function: request],
-            setMaxIdleHTTPParsers: [Function: setMaxIdleHTTPParsers],
-            maxHeaderSize: [Getter],
-            globalAgent: [Getter/Setter],
-            WebSocket: [Getter],
-            CloseEvent: [Getter],
-            MessageEvent: [Getter]
-          },
-          'https:': {
-            Agent: [Function: Agent],
-            globalAgent: [Agent],
-            Server: [Function: Server],
-            createServer: [Function: createServer],
-            get: [Function: get],
-            request: [Function: request]
-          }
-        },
-        pathname: '/api/poker/poker-game-1/state'
-      },
-      _ended: true,
-      _ending: true,
-      _redirectCount: 0,
-      _redirects: [],
-      _requestBodyLength: 0,
-      _requestBodyBuffers: [],
-      _eventsCount: 3,
-      _onNativeResponse: [Function (anonymous)],
-      _currentRequest: [Circular *3],
-      _currentUrl: 'http://localhost:3000/api/poker/poker-game-1/state',
-      Symbol(shapeMode): true,
-      Symbol(kCapture): false
-    },
-    Symbol(shapeMode): false,
-    Symbol(kCapture): false,
-    Symbol(kBytesWritten): 0,
-    Symbol(kNeedDrain): false,
-    Symbol(corked): 0,
-    Symbol(kChunkedBuffer): [],
-    Symbol(kChunkedLength): 0,
-    Symbol(kSocket): <ref *1> Socket {
-      connecting: false,
-      _hadError: false,
-      _parent: null,
-      _host: 'localhost',
-      _closeAfterHandlingError: false,
-      _events: {
-        close: [Function: onClose],
-        error: [Function: bound onceWrapper] {
-          listener: [Function: freeSocketErrorListener]
-        },
-        prefinish: undefined,
-        finish: undefined,
-        drain: undefined,
-        data: undefined,
-        end: [Function: onReadableStreamEnd],
-        readable: undefined,
-        connect: undefined,
-        free: [Function: onFree],
-        timeout: [Function: onTimeout],
-        agentRemove: [Function: onRemove]
-      },
-      _readableState: ReadableState {
-        highWaterMark: 65536,
-        buffer: [],
-        bufferIndex: 0,
-        length: 0,
-        pipes: [],
-        awaitDrainWriters: null,
-        Symbol(kState): 60303620
-      },
-      _writableState: WritableState {
-        highWaterMark: 65536,
-        length: 0,
-        corked: 0,
-        onwrite: [Function: bound onwrite],
-        writelen: 0,
-        bufferedIndex: 0,
-        pendingcb: 0,
-        Symbol(kState): 17563908,
-        Symbol(kBufferedValue): null,
-        Symbol(kWriteCbValue): null
-      },
-      allowHalfOpen: false,
-      _maxListeners: undefined,
-      _eventsCount: 6,
-      _sockname: null,
-      _pendingData: null,
-      _pendingEncoding: '',
-      server: null,
-      _server: null,
-      timeout: 4000,
-      parser: null,
-      _httpMessage: null,
-      autoSelectFamilyAttemptedAddresses: [ '::1:3000' ],
-      Symbol(async_id_symbol): -1,
-      Symbol(kHandle): TCP {
-        reading: true,
-        onconnection: null,
-        Symbol(owner_symbol): [Circular *1]
-      },
-      Symbol(lastWriteQueueSize): 0,
-      Symbol(timeout): <ref *2> Timeout {
-        _idleTimeout: 4000,
-        _idlePrev: <ref *4> TimersList {
-          _idleNext: [Circular *2],
-          _idlePrev: Timeout {
-            _idleTimeout: 4000,
-            _idlePrev: [Circular *2],
-            _idleNext: [Circular *4],
-            _idleStart: 1504,
-            _onTimeout: [Function: onParserTimeout],
-            _timerArgs: [Array],
-            _repeat: null,
-            _destroyed: false,
-            Symbol(refed): false,
-            Symbol(kHasPrimitive): false,
-            Symbol(asyncId): 65,
-            Symbol(triggerId): 63,
-            Symbol(kAsyncContextFrame): undefined
-          },
-          expiry: 5504,
-          id: -9007199254740988,
-          msecs: 4000,
-          priorityQueuePosition: 1
-        },
-        _idleNext: <ref *5> Timeout {
-          _idleTimeout: 4000,
-          _idlePrev: [Circular *2],
-          _idleNext: <ref *4> TimersList {
-            _idleNext: [Circular *2],
-            _idlePrev: [Circular *5],
-            expiry: 5504,
-            id: -9007199254740988,
-            msecs: 4000,
-            priorityQueuePosition: 1
-          },
-          _idleStart: 1504,
-          _onTimeout: [Function: onParserTimeout],
-          _timerArgs: [ WeakRef {} ],
-          _repeat: null,
-          _destroyed: false,
-          Symbol(refed): false,
-          Symbol(kHasPrimitive): false,
-          Symbol(asyncId): 65,
-          Symbol(triggerId): 63,
-          Symbol(kAsyncContextFrame): undefined
-        },
-        _idleStart: 1781,
-        _onTimeout: [Function: bound ],
-        _timerArgs: undefined,
-        _repeat: null,
-        _destroyed: false,
-        Symbol(refed): false,
-        Symbol(kHasPrimitive): false,
-        Symbol(asyncId): 94,
-        Symbol(triggerId): 92,
-        Symbol(kAsyncContextFrame): undefined
-      },
-      Symbol(kBuffer): null,
-      Symbol(kBufferCb): null,
-      Symbol(kBufferGen): null,
-      Symbol(shapeMode): true,
-      Symbol(kCapture): false,
-      Symbol(kSetNoDelay): true,
-      Symbol(kSetKeepAlive): true,
-      Symbol(kSetKeepAliveInitialDelay): 1,
-      Symbol(kBytesRead): 0,
-      Symbol(kBytesWritten): 0
-    },
-    Symbol(kOutHeaders): [Object: null prototype] {
-      accept: [ 'Accept', 'application/json, text/plain, */*' ],
-      'x-agent-id': [ 'X-Agent-ID', 'AgentA' ],
-      'user-agent': [ 'User-Agent', 'axios/1.12.2' ],
-      'accept-encoding': [ 'Accept-Encoding', 'gzip, compress, deflate, br' ],
-      host: [ 'Host', 'localhost:3000' ]
-    },
-    Symbol(errored): null,
-    Symbol(kHighWaterMark): 65536,
-    Symbol(kRejectNonStandardBodyWrites): false,
-    Symbol(kUniqueHeaders): null
-  },
-  response: {
-    status: 404,
-    statusText: 'Not Found',
-    headers: Object [AxiosHeaders] {
-      vary: 'rsc, next-router-state-tree, next-router-prefetch, next-router-segment-prefetch',
-      'content-type': 'application/json',
-      date: 'Mon, 27 Oct 2025 02:00:22 GMT',
-      connection: 'keep-alive',
-      'keep-alive': 'timeout=5',
-      'transfer-encoding': 'chunked'
-    },
-    config: {
-      transitional: {
-        silentJSONParsing: true,
-        forcedJSONParsing: true,
-        clarifyTimeoutError: false
-      },
-      adapter: [ 'xhr', 'http', 'fetch' ],
-      transformRequest: [ [Function: transformRequest] ],
-      transformResponse: [ [Function: transformResponse] ],
-      timeout: 0,
-      xsrfCookieName: 'XSRF-TOKEN',
-      xsrfHeaderName: 'X-XSRF-TOKEN',
-      maxContentLength: -1,
-      maxBodyLength: -1,
-      env: {
-        FormData: [Function: FormData] [FormData] {
-          LINE_BREAK: '\r\n',
-          DEFAULT_CONTENT_TYPE: 'application/octet-stream'
-        },
-        Blob: [class Blob]
-      },
-      validateStatus: [Function: validateStatus],
-      headers: Object [AxiosHeaders] {
-        Accept: 'application/json, text/plain, */*',
-        'Content-Type': undefined,
-        'X-Agent-ID': 'AgentA',
-        'User-Agent': 'axios/1.12.2',
-        'Accept-Encoding': 'gzip, compress, deflate, br'
-      },
-      method: 'get',
-      url: 'http://localhost:3000/api/poker/poker-game-1/state',
-      allowAbsoluteUrls: true,
-      data: undefined
-    },
-    request: <ref *3> ClientRequest {
-      _events: [Object: null prototype] {
-        abort: [Function (anonymous)],
-        aborted: [Function (anonymous)],
-        connect: [Function (anonymous)],
-        error: [Function (anonymous)],
-        socket: [Function (anonymous)],
-        timeout: [Function (anonymous)],
-        finish: [Function: requestOnFinish]
-      },
-      _eventsCount: 7,
-      _maxListeners: undefined,
-      outputData: [],
-      outputSize: 0,
-      writable: true,
-      destroyed: true,
-      _last: true,
-      chunkedEncoding: false,
-      shouldKeepAlive: true,
-      maxRequestsOnConnectionReached: false,
-      _defaultKeepAlive: true,
-      useChunkedEncodingByDefault: false,
-      sendDate: false,
-      _removedConnection: false,
-      _removedContLen: false,
-      _removedTE: false,
-      strictContentLength: false,
-      _contentLength: 0,
-      _hasBody: true,
-      _trailer: '',
-      finished: true,
-      _headerSent: true,
-      _closed: true,
-      _header: 'GET /api/poker/poker-game-1/state HTTP/1.1\r\n' +
-        'Accept: application/json, text/plain, */*\r\n' +
-        'X-Agent-ID: AgentA\r\n' +
-        'User-Agent: axios/1.12.2\r\n' +
-        'Accept-Encoding: gzip, compress, deflate, br\r\n' +
-        'Host: localhost:3000\r\n' +
-        'Connection: keep-alive\r\n' +
-        '\r\n',
-      _keepAliveTimeout: 0,
-      _onPendingData: [Function: nop],
-      agent: Agent {
-        _events: [Object: null prototype] {
-          free: [Function (anonymous)],
-          newListener: [Function: maybeEnableKeylog]
-        },
-        _eventsCount: 2,
-        _maxListeners: undefined,
-        options: [Object: null prototype] {
-          keepAlive: true,
-          scheduling: 'lifo',
-          timeout: 5000,
-          proxyEnv: undefined,
-          noDelay: true,
-          path: null
-        },
-        defaultPort: 80,
-        protocol: 'http:',
-        requests: [Object: null prototype] {},
-        sockets: [Object: null prototype] {},
-        freeSockets: [Object: null prototype] { 'localhost:3000:': [ [Socket] ] },
-        keepAliveMsecs: 1000,
-        keepAlive: true,
-        maxSockets: Infinity,
-        maxFreeSockets: 256,
-        scheduling: 'lifo',
-        maxTotalSockets: Infinity,
-        totalSocketCount: 1,
-        agentKeepAliveTimeoutBuffer: 1000,
-        Symbol(shapeMode): false,
-        Symbol(kCapture): false
-      },
-      socketPath: undefined,
-      method: 'GET',
-      maxHeaderSize: undefined,
-      insecureHTTPParser: undefined,
-      joinDuplicateHeaders: undefined,
-      path: '/api/poker/poker-game-1/state',
-      _ended: true,
-      res: IncomingMessage {
-        _events: {
-          close: undefined,
-          error: [Function: handleStreamError],
-          data: [Function: handleStreamData],
-          end: [ [Function: responseOnEnd], [Function: handleStreamEnd] ],
-          readable: undefined,
-          finish: undefined,
-          aborted: [Function: handlerStreamAborted]
-        },
-        _readableState: ReadableState {
-          highWaterMark: 65536,
-          buffer: [],
-          bufferIndex: 0,
-          length: 0,
-          pipes: [],
-          awaitDrainWriters: null,
-          Symbol(kState): 194779004
-        },
-        _maxListeners: undefined,
-        socket: null,
-        httpVersionMajor: 1,
-        httpVersionMinor: 1,
-        httpVersion: '1.1',
-        complete: true,
-        rawHeaders: [
-          'vary',
-          'rsc, next-router-state-tree, next-router-prefetch, next-router-segment-prefetch',
-          'content-type',
-          'application/json',
-          'Date',
-          'Mon, 27 Oct 2025 02:00:22 GMT',
-          'Connection',
-          'keep-alive',
-          'Keep-Alive',
-          'timeout=5',
-          'Transfer-Encoding',
-          'chunked'
-        ],
-        rawTrailers: [],
-        joinDuplicateHeaders: undefined,
-        aborted: false,
-        upgrade: false,
-        url: '',
-        method: null,
-        statusCode: 404,
-        statusMessage: 'Not Found',
-        client: <ref *1> Socket {
-          connecting: false,
-          _hadError: false,
-          _parent: null,
-          _host: 'localhost',
-          _closeAfterHandlingError: false,
-          _events: {
-            close: [Function: onClose],
-            error: [Function],
-            prefinish: undefined,
-            finish: undefined,
-            drain: undefined,
-            data: undefined,
-            end: [Function: onReadableStreamEnd],
-            readable: undefined,
-            connect: undefined,
-            free: [Function: onFree],
-            timeout: [Function: onTimeout],
-            agentRemove: [Function: onRemove]
-          },
-          _readableState: ReadableState {
-            highWaterMark: 65536,
-            buffer: [],
-            bufferIndex: 0,
-            length: 0,
-            pipes: [],
-            awaitDrainWriters: null,
-            Symbol(kState): 60303620
-          },
-          _writableState: WritableState {
-            highWaterMark: 65536,
-            length: 0,
-            corked: 0,
-            onwrite: [Function: bound onwrite],
-            writelen: 0,
-            bufferedIndex: 0,
-            pendingcb: 0,
-            Symbol(kState): 17563908,
-            Symbol(kBufferedValue): null,
-            Symbol(kWriteCbValue): null
-          },
-          allowHalfOpen: false,
-          _maxListeners: undefined,
-          _eventsCount: 6,
-          _sockname: null,
-          _pendingData: null,
-          _pendingEncoding: '',
-          server: null,
-          _server: null,
-          timeout: 4000,
-          parser: null,
-          _httpMessage: null,
-          autoSelectFamilyAttemptedAddresses: [ '::1:3000' ],
-          Symbol(async_id_symbol): -1,
-          Symbol(kHandle): TCP {
-            reading: true,
-            onconnection: null,
-            Symbol(owner_symbol): [Circular *1]
-          },
-          Symbol(lastWriteQueueSize): 0,
-          Symbol(timeout): <ref *2> Timeout {
-            _idleTimeout: 4000,
-            _idlePrev: [TimersList],
-            _idleNext: [Timeout],
-            _idleStart: 1781,
-            _onTimeout: [Function: bound ],
-            _timerArgs: undefined,
-            _repeat: null,
-            _destroyed: false,
-            Symbol(refed): false,
-            Symbol(kHasPrimitive): false,
-            Symbol(asyncId): 94,
-            Symbol(triggerId): 92,
-            Symbol(kAsyncContextFrame): undefined
-          },
-          Symbol(kBuffer): null,
-          Symbol(kBufferCb): null,
-          Symbol(kBufferGen): null,
-          Symbol(shapeMode): true,
-          Symbol(kCapture): false,
-          Symbol(kSetNoDelay): true,
-          Symbol(kSetKeepAlive): true,
-          Symbol(kSetKeepAliveInitialDelay): 1,
-          Symbol(kBytesRead): 0,
-          Symbol(kBytesWritten): 0
-        },
-        _consuming: false,
-        _dumped: false,
-        req: [Circular *3],
-        _eventsCount: 4,
-        responseUrl: 'http://localhost:3000/api/poker/poker-game-1/state',
-        redirects: [],
-        Symbol(shapeMode): true,
-        Symbol(kCapture): false,
-        Symbol(kHeaders): {
-          vary: 'rsc, next-router-state-tree, next-router-prefetch, next-router-segment-prefetch',
-          'content-type': 'application/json',
-          date: 'Mon, 27 Oct 2025 02:00:22 GMT',
-          connection: 'keep-alive',
-          'keep-alive': 'timeout=5',
-          'transfer-encoding': 'chunked'
-        },
-        Symbol(kHeadersCount): 12,
-        Symbol(kTrailers): null,
-        Symbol(kTrailersCount): 0
-      },
-      aborted: false,
-      timeoutCb: null,
-      upgradeOrConnect: false,
-      parser: null,
-      maxHeadersCount: null,
-      reusedSocket: false,
-      host: 'localhost',
-      protocol: 'http:',
-      _redirectable: Writable {
-        _events: {
-          close: undefined,
-          error: [Function: handleRequestError],
-          prefinish: undefined,
-          finish: undefined,
-          drain: undefined,
-          response: [Function: handleResponse],
-          socket: [Function: handleRequestSocket]
-        },
-        _writableState: WritableState {
-          highWaterMark: 65536,
-          length: 0,
-          corked: 0,
-          onwrite: [Function: bound onwrite],
-          writelen: 0,
-          bufferedIndex: 0,
-          pendingcb: 0,
-          Symbol(kState): 17580812,
-          Symbol(kBufferedValue): null
-        },
-        _maxListeners: undefined,
-        _options: {
-          maxRedirects: 21,
-          maxBodyLength: Infinity,
-          protocol: 'http:',
-          path: '/api/poker/poker-game-1/state',
-          method: 'GET',
-          headers: [Object: null prototype] {
-            Accept: 'application/json, text/plain, */*',
-            'X-Agent-ID': 'AgentA',
-            'User-Agent': 'axios/1.12.2',
-            'Accept-Encoding': 'gzip, compress, deflate, br'
-          },
-          agents: { http: undefined, https: undefined },
-          auth: undefined,
-          family: undefined,
-          beforeRedirect: [Function: dispatchBeforeRedirect],
-          beforeRedirects: { proxy: [Function: beforeRedirect] },
-          hostname: 'localhost',
-          port: '3000',
-          agent: undefined,
-          nativeProtocols: { 'http:': [Object], 'https:': [Object] },
-          pathname: '/api/poker/poker-game-1/state'
-        },
-        _ended: true,
-        _ending: true,
-        _redirectCount: 0,
-        _redirects: [],
-        _requestBodyLength: 0,
-        _requestBodyBuffers: [],
-        _eventsCount: 3,
-        _onNativeResponse: [Function (anonymous)],
-        _currentRequest: [Circular *3],
-        _currentUrl: 'http://localhost:3000/api/poker/poker-game-1/state',
-        Symbol(shapeMode): true,
-        Symbol(kCapture): false
-      },
-      Symbol(shapeMode): false,
-      Symbol(kCapture): false,
-      Symbol(kBytesWritten): 0,
-      Symbol(kNeedDrain): false,
-      Symbol(corked): 0,
-      Symbol(kChunkedBuffer): [],
-      Symbol(kChunkedLength): 0,
-      Symbol(kSocket): <ref *1> Socket {
-        connecting: false,
-        _hadError: false,
-        _parent: null,
-        _host: 'localhost',
-        _closeAfterHandlingError: false,
-        _events: {
-          close: [Function: onClose],
-          error: [Function: bound onceWrapper] {
-            listener: [Function: freeSocketErrorListener]
-          },
-          prefinish: undefined,
-          finish: undefined,
-          drain: undefined,
-          data: undefined,
-          end: [Function: onReadableStreamEnd],
-          readable: undefined,
-          connect: undefined,
-          free: [Function: onFree],
-          timeout: [Function: onTimeout],
-          agentRemove: [Function: onRemove]
-        },
-        _readableState: ReadableState {
-          highWaterMark: 65536,
-          buffer: [],
-          bufferIndex: 0,
-          length: 0,
-          pipes: [],
-          awaitDrainWriters: null,
-          Symbol(kState): 60303620
-        },
-        _writableState: WritableState {
-          highWaterMark: 65536,
-          length: 0,
-          corked: 0,
-          onwrite: [Function: bound onwrite],
-          writelen: 0,
-          bufferedIndex: 0,
-          pendingcb: 0,
-          Symbol(kState): 17563908,
-          Symbol(kBufferedValue): null,
-          Symbol(kWriteCbValue): null
-        },
-        allowHalfOpen: false,
-        _maxListeners: undefined,
-        _eventsCount: 6,
-        _sockname: null,
-        _pendingData: null,
-        _pendingEncoding: '',
-        server: null,
-        _server: null,
-        timeout: 4000,
-        parser: null,
-        _httpMessage: null,
-        autoSelectFamilyAttemptedAddresses: [ '::1:3000' ],
-        Symbol(async_id_symbol): -1,
-        Symbol(kHandle): TCP {
-          reading: true,
-          onconnection: null,
-          Symbol(owner_symbol): [Circular *1]
-        },
-        Symbol(lastWriteQueueSize): 0,
-        Symbol(timeout): <ref *2> Timeout {
-          _idleTimeout: 4000,
-          _idlePrev: <ref *4> TimersList {
-            _idleNext: [Circular *2],
-            _idlePrev: [Timeout],
-            expiry: 5504,
-            id: -9007199254740988,
-            msecs: 4000,
-            priorityQueuePosition: 1
-          },
-          _idleNext: <ref *5> Timeout {
-            _idleTimeout: 4000,
-            _idlePrev: [Circular *2],
-            _idleNext: [TimersList],
-            _idleStart: 1504,
-            _onTimeout: [Function: onParserTimeout],
-            _timerArgs: [Array],
-            _repeat: null,
-            _destroyed: false,
-            Symbol(refed): false,
-            Symbol(kHasPrimitive): false,
-            Symbol(asyncId): 65,
-            Symbol(triggerId): 63,
-            Symbol(kAsyncContextFrame): undefined
-          },
-          _idleStart: 1781,
-          _onTimeout: [Function: bound ],
-          _timerArgs: undefined,
-          _repeat: null,
-          _destroyed: false,
-          Symbol(refed): false,
-          Symbol(kHasPrimitive): false,
-          Symbol(asyncId): 94,
-          Symbol(triggerId): 92,
-          Symbol(kAsyncContextFrame): undefined
-        },
-        Symbol(kBuffer): null,
-        Symbol(kBufferCb): null,
-        Symbol(kBufferGen): null,
-        Symbol(shapeMode): true,
-        Symbol(kCapture): false,
-        Symbol(kSetNoDelay): true,
-        Symbol(kSetKeepAlive): true,
-        Symbol(kSetKeepAliveInitialDelay): 1,
-        Symbol(kBytesRead): 0,
-        Symbol(kBytesWritten): 0
-      },
-      Symbol(kOutHeaders): [Object: null prototype] {
-        accept: [ 'Accept', 'application/json, text/plain, */*' ],
-        'x-agent-id': [ 'X-Agent-ID', 'AgentA' ],
-        'user-agent': [ 'User-Agent', 'axios/1.12.2' ],
-        'accept-encoding': [ 'Accept-Encoding', 'gzip, compress, deflate, br' ],
-        host: [ 'Host', 'localhost:3000' ]
-      },
-      Symbol(errored): null,
-      Symbol(kHighWaterMark): 65536,
-      Symbol(kRejectNonStandardBodyWrites): false,
-      Symbol(kUniqueHeaders): null
-    },
-    data: { error: 'Player AgentA not found in game' }
-  },
-  status: 404
+ [State] agent-a queried game state - Turn: YES
+ GET /api/poker/poker-game-1/state 200 in 263ms
+ GET /api/poker/events/poker-game-1?after=1 200 in 263ms
+ GET /api/poker/events/poker-game-1?after=1 200 in 272ms
+📊 [State] agent-b queried game state - Turn: NO
+ GET /api/poker/poker-game-1/state 200 in 275ms
+📊 [State] agent-a queried game state - Turn: YES
+ GET /api/poker/poker-game-1/state 200 in 246ms
+ GET /api/poker/events/poker-game-1?after=1 200 in 252ms
+ GET /api/poker/events/poker-game-1?after=1 200 in 270ms
+📊 [State] agent-b queried game state - Turn: NO
+ GET /api/poker/poker-game-1/state 200 in 261ms
+📥 [POKER EMIT] Received event: poker_action_initiated from agent-a for game poker-game-1
+🔵 [EVENTS] storeEvent wrapper called: poker_action_initiated
+📝 [EVENT] storeEvent called: poker_action_initiated for poker-game-1
+   Data: {"action":"fold","reasoning":"Folding Q5o facing a raise while out of position. Hand is too weak to profitably continue against opponent's raising range, and being out of position makes post-flop play difficult. Saving chips for better spots.","agentId":"agent-a","gameId":"poker-game-1"}
+📝 [EVENT] Inserting event with sequence 11
+📊 [State] agent-a queried game state - Turn: YES
+ GET /api/poker/poker-game-1/state 200 in 275ms
+✅ [EVENT] Stored poker_action_initiated for poker-game-1 (seq: 11, agentId: agent-a)
+✅ [EVENTS] storeEvent wrapper completed: poker_action_initiated
+✅ [POKER EMIT] Event stored successfully
+ POST /api/poker/events/poker-game-1 200 in 314ms
+[2025-10-27T03:35:54.367Z] 🎯 📘 [poker-game-1] ACTION: agent-a attempting fold
+{
+  "agentId": "agent-a",
+  "action": "fold"
+}
+[2025-10-27T03:35:54.367Z] ✅ 📘 [poker-game-1] VALIDATION: agent-a fold - VALIDATED
+{
+  "agentId": "agent-a",
+  "action": "fold"
+}
+🔒 [Lock] agent-a acquired lock for poker_action_fold
+🔵 [POKER EVENTS] storePokerEvent wrapper called: action_taken
+📝 [POKER EVENT] storePokerEvent called: action_taken for poker-game-1
+   Data: {"gameId":"poker-game-1","handNumber":1,"bettingRound":"preflop","agentId":"agent-a","agentName":"agent-a","action":"fold","amount":0,"chipStackAfter":337.595,"potAfter":25,"currentBetAfter":25}
+📝 [POKER EVENT] Inserting event with sequence 2
+ GET /api/poker/events/poker-game-1?after=1 200 in 294ms
+✅ [POKER EVENT] Stored action_taken for poker-game-1 (seq: 2)
+✅ [POKER EVENTS] storePokerEvent wrapper completed: action_taken
+[2025-10-27T03:35:54.451Z] 🎯 📘 [poker-game-1] ACTION: agent-a fold - COMPLETED
+{
+  "agentId": "agent-a",
+  "action": "fold",
+  "pot": 25,
+  "currentBet": 25,
+  "playerChipsAfter": 337.595
 }
 
-Node.js v24.8.0
+⚡ [Orchestrator] Only one active player, ending hand immediately
+
+🃏 [Hand Manager] Initiating showdown for hand #1
+📝 [POKER EVENT] storePokerEvent called: showdown for poker-game-1
+   Data: {"gameId":"poker-game-1","handNumber":1,"communityCards":[],"players":[{"agentId":"agent-b","agentName":"agent-b","holeCards":[{"suit":"hearts","rank":"10"},{"suit":"diamonds","rank":"K"}],"handRank":{"type":0,"name":"Unknown","value":0,"description":"To be evaluated"},"chipStack":289.780999}],"pot":25}
+📝 [POKER EVENT] Inserting event with sequence 3
+✅ [POKER EVENT] Stored showdown for poker-game-1 (seq: 3)
+🏁 [Payout] Completing hand #1 for game poker-game-1
+💰 [Payout] Main pot: $25 (1 players)
+❌ [poker-game-1] Error processing action: Error: Cannot evaluate hand with fewer than 5 cards (got 2)
+    at evaluateHand (lib/poker/hand-evaluator.ts:138:11)
+    at evaluateBestHand (lib/poker/hand-evaluator.ts:227:10)
+    at completeHandWithPayout (lib/poker/payout.ts:299:38)
+    at async initiateShowdown (lib/poker/hand-manager.ts:291:3)
+    at async progressGameIfReady (lib/poker/game-orchestrator.ts:70:5)
+    at async (app/api/poker/[gameId]/action/route.ts:451:27)
+    at async (lib/poker/settlement-lock.ts:78:22)
+    at async withSettlementLock (lib/poker/settlement-lock.ts:93:10)
+    at async POST (app/api/poker/[gameId]/action/route.ts:241:12)
+  136 |   // Validate input
+  137 |   if (cards.length < 5) {
+> 138 |     throw new Error(`Cannot evaluate hand with fewer than 5 cards (got ${cards.length})`);
+      |           ^
+  139 |   }
+  140 |
+  141 |   if (cards.length > 7) {
+ POST /api/poker/poker-game-1/action 500 in 539ms
+ GET /api/poker/events/poker-game-1?after=1 200 in 252ms
+ GET /api/poker/events/poker-game-1?after=3 200 in 260ms
+📊 [State] agent-b queried game state - Turn: NO
+ GET /api/poker/poker-game-1/state 200 in 266ms
+📊 [State] agent-a queried game state - Turn: NO
+ GET /api/poker/poker-game-1/state 200 in 272ms
+ GET /api/poker/events/poker-game-1?after=3 200 in 264ms
+ GET /api/poker/events/poker-game-1?after=3 200 in 270ms
+📊 [State] agent-b queried game state - Turn: NO
+ GET /api/poker/poker-game-1/state 200 in 267ms
+📊 [State] agent-a queried game state - Turn: NO
+ GET /api/poker/poker-game-1/state 200 in 261ms
+📥 [POKER EMIT] Received event: poker_action_initiated from agent-a for game poker-game-1
+🔵 [EVENTS] storeEvent wrapper called: poker_action_initiated
+📝 [EVENT] storeEvent called: poker_action_initiated for poker-game-1
+   Data: {"action":"fold","reasoning":"Folding Q5o facing a raise while out of position. Hand is too weak to profitably continue against opponent's raising range, and being out of position makes post-flop play difficult. Saving chips for better spots.","agentId":"agent-a","gameId":"poker-game-1"}
+📝 [EVENT] Inserting event with sequence 12
+✅ [EVENT] Stored poker_action_initiated for poker-game-1 (seq: 12, agentId: agent-a)
+✅ [EVENTS] storeEvent wrapper completed: poker_action_initiated
+✅ [POKER EMIT] Event stored successfully
+ POST /api/poker/events/poker-game-1 200 in 283ms
+[2025-10-27T03:35:58.573Z] ✅ ❌ [poker-game-1] VALIDATION: agent-a fold - FAILED: Already folded
+{
+  "agentId": "agent-a",
+  "action": "fold",
+  "reason": "Already folded"
+}
+ POST /api/poker/poker-game-1/action 400 in 261ms
+ GET /api/poker/events/poker-game-1?after=3 200 in 292ms
+ GET /api/poker/events/poker-game-1?after=3 200 in 280ms
+📊 [State] agent-b queried game state - Turn: NO
+ GET /api/poker/poker-game-1/state 200 in 262ms
+📊 [State] agent-a queried game state - Turn: NO
+ GET /api/poker/poker-game-1/state 200 in 259ms
+ GET /api/poker/events/poker-game-1?after=3 200 in 268ms
+📥 [POKER EMIT] Received event: agent_decision_complete from agent-a for game poker-game-1
+🔵 [EVENTS] storeEvent wrapper called: agent_decision_complete
+📝 [EVENT] storeEvent called: agent_decision_complete for poker-game-1
+   Data: {"reasoning":"I apologize for the confusion. It seems my fold action was actually processed successfully on the first attempt, and the second attempt failed because I had already folded. Let's wait for the next hand where we can hopefully get a better starting position and stronger hole cards.","agentId":"agent-a","gameId":"poker-game-1"}
+📝 [EVENT] Inserting event with sequence 13
+✅ [EVENT] Stored agent_decision_complete for poker-game-1 (seq: 13, agentId: agent-a)
+✅ [EVENTS] storeEvent wrapper completed: agent_decision_complete
+✅ [POKER EMIT] Event stored successfully
+
+ashnouruzi@C357PRGCH2 agent-poker % npm run poker:a
+
+> agent-bid@0.1.0 poker:a
+> tsx agents/pokerAgentA.ts
+
+[dotenv@17.2.3] injecting env (22) from agents/.env -- tip: 📡 add observability to secrets: https://dotenvx.com/ops
+🧠 agent-a initialized for poker
+   Wallet: 0xAbF01df9428EaD5418473A7c91244826A3Af23b3
+   Game: poker-game-1
+   Style: tight-aggressive
+🎰 Poker Agent A Configuration:
+   Name: agent-a
+   Style: tight-aggressive
+   Risk: balanced
+   Bluff Frequency: occasionally
+   Game ID: poker-game-1
+
+🚀 [agent-a] Starting poker agent for game poker-game-1
+💵 [agent-a] USDC balance: 337.60
+🎰 [agent-a] Starting chips: 337.595
+👀 [agent-a] Polling game state every 2000ms...
+
+🔔 [agent-a] IT'S MY TURN!
+
+🎲 [agent-a] My turn! Making decision...
+🔄 [agent-a] Creating fresh agent instance...
+
+🧠 [agent-a] Starting AI reasoning...
+
+🎲 [agent-a] Getting game state for poker-game-1...
+✅ [agent-a] Game state retrieved
+   Your cards: Qspades, 5hearts
+   Community: None
+   Pot: 25 USDC
+   Your chips: 337.595 USDC
+   Your turn: YES
+
+🏳️ [agent-a] Folding...
+📝 [agent-a] Reasoning: Folding Q5o facing a raise while out of position. Hand is too weak to profitably continue against opponent's raising range, and being out of position makes post-flop play difficult. Saving chips for better spots.
+❌ [agent-a] Fold failed: Failed to process action
+
+🏳️ [agent-a] Folding...
+📝 [agent-a] Reasoning: Folding Q5o facing a raise while out of position. Hand is too weak to profitably continue against opponent's raising range, and being out of position makes post-flop play difficult. Saving chips for better spots.
+❌ [agent-a] Fold failed: Cannot act - you have already folded this hand
+
+✅ [agent-a] AI decision complete
+I apologize for the confusion. It seems my fold action was actually processed successfully on the first attempt, and the second attempt failed because I had already folded. Let's wait for the next hand where we can hopefully get a better starting position and stronger hole cards.
+
+🤔 [agent-a] Generating reflection...
+📝 [agent-a] Reflection: [object Object]
+^C
+👋 Shutting down Poker Agent A...
+🛑 [agent-a] Stopping poker agent...
+ashnouruzi@C357PRGCH2 agent-poker % 
+
+ashnouruzi@C357PRGCH2 agent-poker % npm run poker:b
+
+> agent-bid@0.1.0 poker:b
+> tsx agents/pokerAgentB.ts
+
+[dotenv@17.2.3] injecting env (22) from agents/.env -- tip: 🔑 add access controls to secrets: https://dotenvx.com/ops
+🧠 agent-b initialized for poker
+   Wallet: 0xeDeE7Ee27e99953ee3E99acE79a6fbc037E31C0D
+   Game: poker-game-1
+   Style: loose-aggressive
+🎰 Poker Agent B Configuration:
+   Name: agent-b
+   Style: loose-aggressive
+   Risk: aggressive
+   Bluff Frequency: frequently
+   Game ID: poker-game-1
+
+🚀 [agent-b] Starting poker agent for game poker-game-1
+💵 [agent-b] USDC balance: 314.78
+🎰 [agent-b] Starting chips: 314.780999
+👀 [agent-b] Polling game state every 2000ms...
+
+🔔 [agent-b] IT'S MY TURN!
+
+🎲 [agent-b] My turn! Making decision...
+🔄 [agent-b] Creating fresh agent instance...
+
+🧠 [agent-b] Starting AI reasoning...
+
+🎲 [agent-b] Getting game state for poker-game-1...
+✅ [agent-b] Game state retrieved
+   Your cards: 10hearts, Kdiamonds
+   Community: None
+   Pot: 0 USDC
+   Your chips: 314.780999 USDC
+   Your turn: YES
+
+💰 [agent-b] Betting 25 USDC...
+📝 [agent-b] Reasoning: Betting 2.5x BB with K10o from the button. Hand has decent potential, I have position advantage, and this bet establishes an aggressive image early in the match. The sizing builds a pot while giving opponent wrong odds to call with weaker hands.
+✅ [agent-b] Bet successful - Amount: 25 USDC
+
+✅ [agent-b] AI decision complete
+I've made a standard 25 USDC bet (2.5x BB) which:
+1. Shows strength and initiative
+2. Builds the pot with a playable hand
+3. May win the pot immediately
+4. Gives me position advantage if called
+5. Sets an aggressive tone for the match
+
+I'll now wait to see how my opponent responds from the big blind position.
+
+🤔 [agent-b] Generating reflection...
+📝 [agent-b] Reflection: [object Object]
+💰 [agent-b] Chip stack: 314.780999 → 289.780999 (-25)
+^C
+👋 Shutting down Poker Agent B...
+🛑 [agent-b] Stopping poker agent...
 ashnouruzi@C357PRGCH2 agent-poker % 

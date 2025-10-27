@@ -27,7 +27,7 @@ interface GameState {
     chipStack: number;
     currentBet: number;
     status: string;
-    holeCards?: [Card, Card]; // Hole cards for TV poker view
+    holeCards?: [Card, Card];
   }[];
 }
 
@@ -117,7 +117,6 @@ export default function PokerGamePage({ params }: { params: Promise<{ gameId: st
         break;
 
       case 'hand_complete':
-        // Update final chip stacks
         if (data.finalChipStacks) {
           setGameState(prev => prev ? {
             ...prev,
@@ -132,7 +131,7 @@ export default function PokerGamePage({ params }: { params: Promise<{ gameId: st
   };
 
   const getAgentColor = (agentId: string) => {
-    return agentId.includes('A') ? '#d4af8c' : '#628268';
+    return agentId.includes('a') || agentId.includes('A') ? '#d4af8c' : '#628268';
   };
 
   const formatCard = (card: Card) => {
@@ -147,90 +146,8 @@ export default function PokerGamePage({ params }: { params: Promise<{ gameId: st
     return { display: `${card.rank}${suit}`, isRed };
   };
 
-  const renderEvent = (event: PokerEvent, idx: number) => {
+  const renderAgentEvent = (event: PokerEvent, idx: number, isAgentA: boolean) => {
     const { type, data } = event;
-    const agentId = data.agentId;
-    const isAgentA = agentId?.includes('A');
-
-    // System events (centered)
-    if (type === 'hand_started' || type === 'cards_dealt' || type === 'betting_round_complete' ||
-        type === 'hand_complete' || type === 'game_ended') {
-
-      if (type === 'hand_started') {
-        return (
-          <div key={`${idx}-${event.sequence}-${type}`} className="flex justify-center my-6">
-            <div className="bg-[#2a2a2a] border border-[#444444] rounded-lg px-6 py-3 max-w-md text-center">
-              <div className="text-2xl mb-2">🎴</div>
-              <div className="text-[#ffffff] text-lg font-bold">Hand #{data.handNumber}</div>
-              <div className="text-[#888888] text-xs mt-1">
-                Dealer: {data.dealerPosition === 0 ? 'Agent A' : 'Agent B'}
-              </div>
-              <div className="text-[#888888] text-xs">
-                Blinds: ${data.smallBlindAmount} / ${data.bigBlindAmount}
-              </div>
-            </div>
-          </div>
-        );
-      }
-
-      if (type === 'cards_dealt') {
-        return (
-          <div key={`${idx}-${event.sequence}-${type}`} className="flex justify-center my-4">
-            <div className="bg-[#1e3a1e] border border-[#2d5a2d] rounded-lg px-4 py-2">
-              <div className="text-[#90ee90] text-sm font-semibold">
-                {data.bettingRound.toUpperCase()} - {data.cards?.length} card{data.cards?.length !== 1 ? 's' : ''} dealt
-              </div>
-            </div>
-          </div>
-        );
-      }
-
-      if (type === 'hand_complete') {
-        return (
-          <div key={`${idx}-${event.sequence}-${type}`} className="flex justify-center my-6">
-            <div className="bg-[#2a2a2a] border border-[#444444] rounded-lg px-6 py-4 max-w-md text-center">
-              <div className="text-3xl mb-3">🏆</div>
-              <div className="text-[#ffffff] text-xl font-bold mb-2">
-                {data.winnerName} wins!
-              </div>
-              <div className="text-[#cccccc] text-sm mb-1">
-                Pot: ${data.amountWon?.toFixed(2)}
-              </div>
-              {data.winningHand && (
-                <div className="text-[#888888] text-xs">
-                  {data.winningHand.name || 'Best hand'}
-                </div>
-              )}
-            </div>
-          </div>
-        );
-      }
-
-      if (type === 'game_ended') {
-        return (
-          <div key={`${idx}-${event.sequence}-${type}`} className="flex justify-center my-6">
-            <div className="bg-[#1e3a1e] border border-[#2d5a2d] rounded-lg px-8 py-6 max-w-md text-center">
-              <div className="text-5xl mb-4">🎉</div>
-              <div className="text-[#90ee90] text-2xl font-bold mb-3">Game Over!</div>
-              <div className="text-[#ffffff] text-lg mb-2">
-                Winner: {data.winnerName}
-              </div>
-              <div className="text-[#cccccc] text-sm">
-                Final chips: ${data.winnerChips?.toFixed(2)}
-              </div>
-              <div className="text-[#888888] text-xs mt-3">
-                {data.handsPlayed} hands played
-              </div>
-            </div>
-          </div>
-        );
-      }
-
-      return null;
-    }
-
-    // Agent events (left/right aligned)
-    if (!agentId) return null;
 
     return (
       <div key={`${idx}-${event.sequence}-${type}`} className={`flex ${isAgentA ? 'justify-start' : 'justify-end'} mb-4`}>
@@ -239,28 +156,48 @@ export default function PokerGamePage({ params }: { params: Promise<{ gameId: st
           <div className="flex-shrink-0">
             <div
               className="w-10 h-10 rounded-full flex items-center justify-center text-white font-bold"
-              style={{ backgroundColor: getAgentColor(agentId) }}
+              style={{ backgroundColor: getAgentColor(data.agentId) }}
             >
-              {agentId.charAt(agentId.length - 1)}
+              {data.agentId.charAt(data.agentId.length - 1).toUpperCase()}
             </div>
           </div>
 
           {/* Message content */}
           <div className={`flex flex-col ${isAgentA ? 'items-start' : 'items-end'}`}>
             <div className="text-[#888888] text-xs mb-1 px-2">
-              {data.agentName || agentId}
+              {data.agentName || data.agentId}
             </div>
 
             {/* Agent thinking */}
             {type === 'agent_thinking' && (
               <div
-                className={`rounded-2xl px-4 py-2 bg-[#2a2a2a] border border-[#444444] ${
+                className={`rounded-2xl px-4 py-2 bg-[#2a2a2a] border border-[#444444] relative overflow-hidden ${
                   isAgentA ? 'rounded-tl-sm' : 'rounded-tr-sm'
                 }`}
               >
-                <div className="text-[#888888] text-xs flex items-center gap-1">
+                {/* Shimmer animation */}
+                <div className="absolute inset-0 shimmer"></div>
+                <div className="text-[#888888] text-xs flex items-center gap-1 relative z-10">
                   <span className="animate-pulse">💭</span>
                   <span>Thinking...</span>
+                </div>
+              </div>
+            )}
+
+            {/* Agent decision complete (reasoning) */}
+            {type === 'agent_decision_complete' && data.reasoning && (
+              <div
+                className={`rounded-2xl px-4 py-3 bg-[#333333] border border-[#555555] ${
+                  isAgentA ? 'rounded-tl-sm' : 'rounded-tr-sm'
+                }`}
+              >
+                <div className="text-[#aaaaaa] text-xs mb-1 flex items-center gap-1">
+                  <span>💰</span>
+                  <span>Decision</span>
+                </div>
+                <div className="text-[#cccccc] text-xs leading-relaxed italic">
+                  &quot;{data.reasoning.substring(0, 200)}
+                  {data.reasoning.length > 200 && '...'}&quot;
                 </div>
               </div>
             )}
@@ -272,11 +209,11 @@ export default function PokerGamePage({ params }: { params: Promise<{ gameId: st
                   isAgentA ? 'bg-[#333333] rounded-tl-sm' : 'bg-[#444444] rounded-tr-sm'
                 }`}
               >
-                <div className="flex items-baseline gap-2">
+                <div className="flex items-baseline gap-2 mb-1">
                   <span className="text-[#cccccc] text-sm font-semibold">
                     {data.action.toUpperCase()}
                   </span>
-                  {data.amount && (
+                  {data.amount && data.amount > 0 && (
                     <>
                       <span className="text-[#ffffff] text-lg font-bold">
                         ${data.amount.toFixed(2)}
@@ -285,22 +222,45 @@ export default function PokerGamePage({ params }: { params: Promise<{ gameId: st
                     </>
                   )}
                 </div>
-                <div className="text-[#888888] text-xs mt-1">
+                <div className="text-[#888888] text-xs">
                   Stack: ${data.chipStackAfter?.toFixed(2)}
                 </div>
+                {data.transactionHash && (
+                  <a
+                    href={`https://sepolia.basescan.org/tx/${data.transactionHash}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-[#666666] hover:text-[#888888] text-xs underline mt-2 inline-block"
+                  >
+                    View on Basescan →
+                  </a>
+                )}
               </div>
             )}
 
             {/* Blind posted */}
             {type === 'blind_posted' && (
               <div
-                className={`rounded-2xl px-4 py-2 bg-[#2a2a2a] border border-[#444444] ${
+                className={`rounded-2xl px-4 py-3 bg-[#2a2a2a] border border-[#444444] ${
                   isAgentA ? 'rounded-tl-sm' : 'rounded-tr-sm'
                 }`}
               >
-                <div className="text-[#888888] text-xs">
+                <div className="text-[#cccccc] text-sm mb-1">
                   Posted {data.blindType} blind: ${data.amount?.toFixed(2)}
                 </div>
+                <div className="text-[#888888] text-xs">
+                  Stack: ${data.chipStackAfter?.toFixed(2)}
+                </div>
+                {data.transactionHash && (
+                  <a
+                    href={`https://sepolia.basescan.org/tx/${data.transactionHash}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-[#666666] hover:text-[#888888] text-xs underline mt-2 inline-block"
+                  >
+                    View on Basescan →
+                  </a>
+                )}
               </div>
             )}
 
@@ -316,64 +276,189 @@ export default function PokerGamePage({ params }: { params: Promise<{ gameId: st
                 </div>
               </div>
             )}
-
-            {/* Agent decision complete */}
-            {type === 'agent_decision_complete' && data.reasoning && (
-              <div
-                className={`rounded-2xl px-4 py-3 bg-[#333333] border border-[#555555] ${
-                  isAgentA ? 'rounded-tl-sm' : 'rounded-tr-sm'
-                }`}
-              >
-                <div className="text-[#cccccc] text-xs leading-relaxed">
-                  {data.reasoning.substring(0, 200)}
-                  {data.reasoning.length > 200 && '...'}
-                </div>
-              </div>
-            )}
           </div>
         </div>
       </div>
     );
   };
 
-  return (
-    <div className="min-h-screen bg-[#1a1a1a] flex flex-col">
-      {/* Header */}
-      <div className="bg-[#2a2a2a] border-b border-[#333333] px-6 py-4">
-        <div className="max-w-4xl mx-auto">
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-[#ffffff] text-xl font-semibold">
-                Poker Game: {gameId}
-              </h1>
-              <p className="text-[#888888] text-sm">AI vs AI Texas Hold&apos;em</p>
+  const renderCenterEvent = (event: PokerEvent, idx: number) => {
+    const { type, data } = event;
+
+    if (type === 'hand_started') {
+      return (
+        <div key={`${idx}-${event.sequence}-${type}`} className="flex justify-center my-6">
+          <div className="bg-[#2a2a2a] border border-[#444444] rounded-lg px-6 py-3 max-w-md text-center">
+            <div className="text-2xl mb-2">🎴</div>
+            <div className="text-[#ffffff] text-lg font-bold">Hand #{data.handNumber}</div>
+            <div className="text-[#888888] text-xs mt-1">
+              Dealer: {data.dealerPosition === 0 ? 'Agent A' : 'Agent B'}
             </div>
-            <div className="text-right">
-              <div className="text-[#888888] text-xs uppercase tracking-wide">Pot</div>
-              <div className="text-[#ffffff] text-2xl font-bold">
-                ${gameState?.pot?.toFixed(2) || '0.00'}
-              </div>
-              {gameState?.handNumber && (
-                <div className="text-[#888888] text-xs mt-1">
-                  Hand #{gameState.handNumber}
-                </div>
-              )}
+            <div className="text-[#888888] text-xs">
+              Blinds: ${data.smallBlindAmount} / ${data.bigBlindAmount}
             </div>
           </div>
         </div>
-      </div>
+      );
+    }
 
-      {/* Game Status Bar */}
-      {gameState && gameState.players && gameState.players.length > 0 && (
-        <div className="bg-[#222222] border-b border-[#333333] px-6 py-3">
-          <div className="max-w-4xl mx-auto flex items-center justify-around">
+    if (type === 'cards_dealt') {
+      return (
+        <div key={`${idx}-${event.sequence}-${type}`} className="flex justify-center my-4">
+          <div className="bg-[#1e3a1e] border border-[#2d5a2d] rounded-lg px-4 py-2">
+            <div className="text-[#90ee90] text-sm font-semibold">
+              {data.bettingRound.toUpperCase()} - {data.cards?.length} card{data.cards?.length !== 1 ? 's' : ''} dealt
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    if (type === 'hand_complete') {
+      return (
+        <div key={`${idx}-${event.sequence}-${type}`} className="flex justify-center my-6">
+          <div className="bg-[#2a2a2a] border border-[#444444] rounded-lg px-6 py-4 max-w-md text-center">
+            <div className="text-3xl mb-3">🏆</div>
+            <div className="text-[#ffffff] text-xl font-bold mb-2">
+              {data.winnerName} wins!
+            </div>
+            <div className="text-[#cccccc] text-sm mb-1">
+              Pot: ${data.amountWon?.toFixed(2)}
+            </div>
+            {data.winningHand && (
+              <div className="text-[#888888] text-xs">
+                {data.winningHand.name || 'Best hand'}
+              </div>
+            )}
+          </div>
+        </div>
+      );
+    }
+
+    if (type === 'game_ended') {
+      return (
+        <div key={`${idx}-${event.sequence}-${type}`} className="flex justify-center my-6">
+          <div className="bg-[#1e3a1e] border border-[#2d5a2d] rounded-lg px-8 py-6 max-w-md text-center">
+            <div className="text-5xl mb-4">🎉</div>
+            <div className="text-[#90ee90] text-2xl font-bold mb-3">Game Over!</div>
+            <div className="text-[#ffffff] text-lg mb-2">
+              Winner: {data.winnerName}
+            </div>
+            <div className="text-[#cccccc] text-sm">
+              Final chips: ${data.winnerChips?.toFixed(2)}
+            </div>
+            <div className="text-[#888888] text-xs mt-3">
+              {data.handsPlayed} hands played
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    if (type === 'showdown') {
+      return (
+        <div key={`${idx}-${event.sequence}-${type}`} className="flex justify-center my-6">
+          <div className="bg-[#2a2a2a] border border-[#444444] rounded-lg px-6 py-4 max-w-md text-center">
+            <div className="text-3xl mb-2">🃏</div>
+            <div className="text-[#ffffff] text-lg font-bold mb-2">Showdown!</div>
+            <div className="text-[#888888] text-xs">
+              Players reveal their cards
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    return null;
+  };
+
+  // Separate events by agent (use exact match to avoid overlap)
+  const agentAEvents = events.filter(e => {
+    const agentId = e.data.agentId;
+    return agentId === 'agent-a';
+  });
+
+  const agentBEvents = events.filter(e => {
+    const agentId = e.data.agentId;
+    return agentId === 'agent-b';
+  });
+
+  const centerEvents = events.filter(e => {
+    const { type } = e;
+    // Exclude 'hand_started' as hand number is already shown in sticky header
+    return ['cards_dealt', 'betting_round_complete', 'showdown', 'hand_complete', 'game_ended'].includes(type);
+  });
+
+  return (
+    <div className="min-h-screen bg-[#1a1a1a] flex flex-col">
+      {/* Shimmer animation styles */}
+      <style jsx>{`
+        @keyframes shimmer {
+          0% {
+            transform: translateX(-100%);
+          }
+          100% {
+            transform: translateX(100%);
+          }
+        }
+
+        .shimmer::after {
+          content: '';
+          position: absolute;
+          top: 0;
+          right: 0;
+          bottom: 0;
+          left: 0;
+          transform: translateX(-100%);
+          background: linear-gradient(
+            90deg,
+            rgba(255, 255, 255, 0) 0%,
+            rgba(255, 255, 255, 0.03) 20%,
+            rgba(255, 255, 255, 0.05) 60%,
+            rgba(255, 255, 255, 0)
+          );
+          animation: shimmer 1.5s infinite;
+        }
+      `}</style>
+
+      {/* Sticky Header Container */}
+      <div className="sticky top-0 z-10 bg-[#1a1a1a]">
+        {/* Header */}
+        <div className="bg-[#2a2a2a] border-b border-[#333333] px-6 py-4">
+          <div className="max-w-7xl mx-auto">
+            <div className="flex items-center justify-between">
+              <div>
+                <h1 className="text-[#ffffff] text-xl font-semibold">
+                  Poker: {gameId}
+                </h1>
+                <p className="text-[#888888] text-sm">AI vs AI Texas Hold&apos;em</p>
+              </div>
+              <div className="text-right">
+                <div className="text-[#888888] text-xs uppercase tracking-wide">Pot</div>
+                <div className="text-[#ffffff] text-2xl font-bold">
+                  ${gameState?.pot?.toFixed(2) || '0.00'}
+                </div>
+                {gameState?.handNumber && (
+                  <div className="text-[#888888] text-xs mt-1">
+                    Hand #{gameState.handNumber}
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Agent Status Bar */}
+        {gameState && gameState.players && gameState.players.length > 0 && (
+          <div className="bg-[#222222] border-b border-[#333333] px-6 py-3">
+          <div className="max-w-7xl mx-auto flex items-center justify-around">
             {gameState.players.map(player => (
               <div key={player.agentId} className="flex items-center gap-3">
                 <div
                   className="w-12 h-12 rounded-full flex items-center justify-center text-white font-bold text-xl"
                   style={{ backgroundColor: getAgentColor(player.agentId) }}
                 >
-                  {player.agentId.charAt(player.agentId.length - 1)}
+                  {player.agentId.charAt(player.agentId.length - 1).toUpperCase()}
                 </div>
                 <div>
                   <div className="text-[#ffffff] font-semibold">{player.agentName}</div>
@@ -385,7 +470,6 @@ export default function PokerGamePage({ params }: { params: Promise<{ gameId: st
                       Bet: ${player.currentBet?.toFixed(2)}
                     </div>
                   )}
-                  {/* Hole Cards (TV Poker View) */}
                   {player.holeCards && player.holeCards.length === 2 && (
                     <div className="flex gap-1 mt-2">
                       {player.holeCards.map((card, idx) => {
@@ -409,7 +493,7 @@ export default function PokerGamePage({ params }: { params: Promise<{ gameId: st
 
           {/* Community Cards */}
           {gameState.communityCards && gameState.communityCards.length > 0 && (
-            <div className="max-w-4xl mx-auto mt-4 text-center">
+            <div className="max-w-7xl mx-auto mt-4 text-center">
               <div className="text-[#888888] text-xs uppercase tracking-wide mb-2">
                 {gameState.bettingRound}
               </div>
@@ -430,11 +514,12 @@ export default function PokerGamePage({ params }: { params: Promise<{ gameId: st
             </div>
           )}
         </div>
-      )}
+        )}
+      </div>
 
-      {/* Events Feed (iMessage style) */}
+      {/* Split-View Events Feed */}
       <div className="flex-1 overflow-y-auto px-6 py-6">
-        <div className="max-w-4xl mx-auto">
+        <div className="max-w-7xl mx-auto">
           {events.length === 0 ? (
             <div className="text-center text-[#666666] py-12">
               <div className="text-4xl mb-4">🎰</div>
@@ -442,8 +527,27 @@ export default function PokerGamePage({ params }: { params: Promise<{ gameId: st
               <p className="text-sm mt-2">Game ID: {gameId}</p>
             </div>
           ) : (
-            events.map((event, idx) => renderEvent(event, idx)).filter(Boolean)
+            <div className="grid grid-cols-[1fr,auto,1fr] gap-8">
+              {/* Agent A Column (Left) */}
+              <div className="space-y-4">
+                {agentAEvents.map((event, idx) => renderAgentEvent(event, idx, true))}
+              </div>
+
+              {/* Center Column (System Events) */}
+              <div className="w-px bg-[#333333]" />
+
+              {/* Agent B Column (Right) */}
+              <div className="space-y-4">
+                {agentBEvents.map((event, idx) => renderAgentEvent(event, idx, false))}
+              </div>
+            </div>
           )}
+
+          {/* Center events overlay */}
+          <div className="mt-6">
+            {centerEvents.map((event, idx) => renderCenterEvent(event, idx)).filter(Boolean)}
+          </div>
+
           <div ref={messagesEndRef} />
         </div>
       </div>

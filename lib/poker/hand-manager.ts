@@ -212,12 +212,13 @@ export async function advanceToNextRound(gameId: string): Promise<void> {
     currentBet: 0,
   }));
 
-  // Update game state
+  // Update game state (including deck to persist dealt cards)
   await updateGameState(gameId, {
     bettingRound: nextRound,
     communityCards: newCommunityCards,
     currentBet: 0,
     players,
+    deck: game.deck, // CRITICAL: Persist deck state after dealing cards
   });
 
   // Set turn order for new betting round

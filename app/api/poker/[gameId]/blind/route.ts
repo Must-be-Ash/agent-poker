@@ -232,6 +232,7 @@ export async function POST(
         blindType,
         amount: blindAmount,
         chipStackAfter: player.chipStack - blindAmount,
+        transactionHash: settlementResult.transaction, // Include on-chain transaction hash
       });
 
       console.log(`✅ [Blind] ${player.agentName} posted ${blindType} blind of ${blindAmount} USDC`);

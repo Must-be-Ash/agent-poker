@@ -184,20 +184,30 @@ export async function POST(
           gameRecord.currentBet,
           player.currentBet
         );
+
+        // For call action, cap payment at player's chip stack (all-in call)
+        if (actionType === 'call' && paymentAmount > player.chipStack) {
+          console.log(`   💰 [All-In Call] ${player.agentName} has ${player.chipStack} USDC but needs ${paymentAmount} USDC to call`);
+          console.log(`   💰 [All-In Call] Adjusting to all-in call with ${player.chipStack} USDC`);
+          paymentAmount = player.chipStack;
+        }
       } catch (error: any) {
         return NextResponse.json({ error: error.message }, { status: 400 });
       }
 
-      // Validate payment action
-      const validation = validatePaymentAction(
-        actionType,
-        paymentAmount,
-        gameRecord.currentBet,
-        player.chipStack
-      );
+      // Validate payment action (skip validation for all-in calls)
+      const isAllInCall = actionType === 'call' && paymentAmount === player.chipStack;
+      if (!isAllInCall) {
+        const validation = validatePaymentAction(
+          actionType,
+          paymentAmount,
+          gameRecord.currentBet,
+          player.chipStack
+        );
 
-      if (!validation.valid) {
-        return NextResponse.json({ error: validation.error }, { status: 400 });
+        if (!validation.valid) {
+          return NextResponse.json({ error: validation.error }, { status: 400 });
+        }
       }
     }
 
@@ -343,6 +353,10 @@ export async function POST(
           break;
 
         case 'call':
+          // Handle all-in call (when player doesn't have enough chips to call full amount)
+          const amountToCall = gameRecord.currentBet - player.currentBet;
+          const isAllInCall = paymentAmount < amountToCall || player.chipStack === paymentAmount;
+
           updatedPlayers[playerIndex].chipStack -= paymentAmount;
           updatedPlayers[playerIndex].currentBet += paymentAmount;
           updatedPlayers[playerIndex].totalBetThisHand += paymentAmount;
@@ -351,7 +365,11 @@ export async function POST(
           // Check if player is all-in after this call
           if (updatedPlayers[playerIndex].chipStack === 0) {
             updatedPlayers[playerIndex].status = 'all-in';
-            console.log(`   💥 ${player.agentName} is ALL-IN after calling`);
+            if (isAllInCall) {
+              console.log(`   💥 ${player.agentName} is ALL-IN with ${paymentAmount} USDC (short call)`);
+            } else {
+              console.log(`   💥 ${player.agentName} is ALL-IN after calling ${paymentAmount} USDC`);
+            }
           }
           break;
 
@@ -405,6 +423,7 @@ export async function POST(
         chipStackAfter: updatedPlayers[playerIndex].chipStack,
         potAfter: gameRecord.pot,
         currentBetAfter: gameRecord.currentBet,
+        transactionHash: settlementResult?.transaction, // Include on-chain transaction hash
       });
 
       // Log action completed
