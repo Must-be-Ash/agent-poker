@@ -12,6 +12,7 @@ import { Hex } from 'viem';
 import { Anthropic } from '@llamaindex/anthropic';
 import { agent } from '@llamaindex/workflow';
 import { createPokerTools, type PokerToolContext } from './poker-tools';
+import { createPokerSearchTool } from './poker-search-tool';
 import {
   createPokerStrategyPrompt,
   type PokerAgentPersonality,
@@ -136,6 +137,14 @@ export class PokerAgent {
     };
 
     const tools = createPokerTools(context);
+
+    // Add web search tool for autonomous learning
+    const searchTool = createPokerSearchTool(
+      this.wallet,
+      this.agentName,
+      this.emitEvent.bind(this)
+    );
+    tools.push(searchTool);
 
     return agent({
       llm: this.llm,

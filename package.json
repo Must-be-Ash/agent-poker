@@ -22,7 +22,8 @@
     "fund:agents": "tsx fund-agents.ts",
     "balance": "tsx check-balance.ts",
     "transfer": "tsx transfer-usdc.ts",
-    "clean:db": "tsx scripts/clean-db.ts"
+    "clean:db": "tsx scripts/clean-db.ts",
+    "test:firecrawl": "tsx scripts/test-poker-firecrawl-402.ts"
   },
   "dependencies": {
     "@coinbase/cdp-sdk": "^1.38.4",
