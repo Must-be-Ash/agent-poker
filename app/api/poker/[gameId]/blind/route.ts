@@ -232,6 +232,8 @@ export async function POST(
         blindType,
         amount: blindAmount,
         chipStackAfter: player.chipStack - blindAmount,
+        playerCurrentBet: blindAmount,
+        potAfter: newPot,
         transactionHash: settlementResult.transaction, // Include on-chain transaction hash
       });
 

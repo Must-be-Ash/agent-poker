@@ -182,14 +182,6 @@ export function validatePaymentAction(
     };
   }
 
-  // Validate call amount matches current bet
-  if (actionType === 'call' && amount !== currentBet) {
-    return {
-      valid: false,
-      error: `Call amount (${amount}) doesn't match current bet (${currentBet})`,
-    };
-  }
-
   // Validate bet is positive
   if (actionType === 'bet' && amount! <= 0) {
     return { valid: false, error: 'Bet amount must be positive' };

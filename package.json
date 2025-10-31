@@ -4,6 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev --turbopack",
+    "dev:quiet": "next dev --turbopack 2>&1 | grep -vE 'GET /api/poker/(events|poker-game-1/state).*200 in'",
     "build": "next build --turbopack",
     "start": "next start",
     "lint": "eslint",

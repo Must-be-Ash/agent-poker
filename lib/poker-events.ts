@@ -29,7 +29,15 @@ export type PokerEventType =
   | 'blind_required'
   | 'payout'
   | 'split_pot'
-  | 'refund';
+  | 'refund'
+  | 'agent_tool_call'
+  | 'agent_tool_response'
+  | 'poker_action_initiated'
+  | 'poker_action_response'
+  | 'agent_joined'
+  | 'agent_error'
+  | 'agent_balance_check'
+  | 'agent_waiting';
 
 // ============================================================================
 // INDIVIDUAL EVENT PAYLOADS
@@ -423,6 +431,14 @@ export function isValidPokerEventType(type: string): type is PokerEventType {
     'payout',
     'split_pot',
     'refund',
+    'agent_tool_call',
+    'agent_tool_response',
+    'poker_action_initiated',
+    'poker_action_response',
+    'agent_joined',
+    'agent_error',
+    'agent_balance_check',
+    'agent_waiting',
   ];
   return validTypes.includes(type as PokerEventType);
 }

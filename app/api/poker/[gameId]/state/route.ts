@@ -117,6 +117,20 @@ export async function GET(
       suit: card.suit,
     });
 
+    // Determine if blind is required
+    // A player must post their blind if:
+    // 1. They are in small/big blind position
+    // 2. Betting round is preflop
+    // 3. They haven't posted it yet (currentBet is less than blind amount)
+    let blindRequired: 'small' | 'big' | null = null;
+    if (game.bettingRound === 'preflop') {
+      if (player.isSmallBlind && player.currentBet < game.smallBlind) {
+        blindRequired = 'small';
+      } else if (player.isBigBlind && player.currentBet < game.bigBlind) {
+        blindRequired = 'big';
+      }
+    }
+
     // Build response
     const response = {
       gameId: game.gameId,
@@ -137,6 +151,7 @@ export async function GET(
       potOdds,
       smallBlind: game.smallBlind,
       bigBlind: game.bigBlind,
+      blindRequired, // New field indicating if player must post blind
     };
 
     console.log(`📊 [State] ${agentId} queried game state - Turn: ${isYourTurn ? 'YES' : 'NO'}`);

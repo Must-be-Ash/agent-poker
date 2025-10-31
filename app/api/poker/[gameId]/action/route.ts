@@ -425,6 +425,7 @@ export async function POST(
         action: actionType,
         amount: paymentAmount,
         chipStackAfter: updatedPlayers[playerIndex].chipStack,
+        playerCurrentBet: updatedPlayers[playerIndex].currentBet,
         potAfter: gameRecord.pot,
         currentBetAfter: gameRecord.currentBet,
         transactionHash: settlementResult?.transaction, // Include on-chain transaction hash

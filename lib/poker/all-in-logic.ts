@@ -48,9 +48,9 @@ export interface SidePotResult {
  * @returns Side pot structure with eligible players for each pot
  */
 export function calculateSidePots(players: PlayerState[]): SidePotResult {
-  // Get players who contributed to the pot (not folded)
+  // Get players who contributed to the pot (includes folded players' contributions)
   const contributingPlayers = players.filter(
-    (p) => p.totalBetThisHand > 0 && p.status !== 'folded'
+    (p) => p.totalBetThisHand > 0
   );
 
   if (contributingPlayers.length === 0) {

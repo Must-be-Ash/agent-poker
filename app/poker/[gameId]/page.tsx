@@ -35,7 +35,7 @@ export default function PokerGamePage({ params }: { params: Promise<{ gameId: st
   const { gameId } = use(params);
   const [events, setEvents] = useState<PokerEvent[]>([]);
   const [gameState, setGameState] = useState<GameState | null>(null);
-  const [lastSequence, setLastSequence] = useState<number>(-1);
+  const lastSequenceRef = useRef<number>(-1);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -49,14 +49,14 @@ export default function PokerGamePage({ params }: { params: Promise<{ gameId: st
     const pollEvents = async () => {
       try {
         const response = await fetch(
-          `/api/poker/events/${encodeURIComponent(gameId)}?after=${lastSequence}`
+          `/api/poker/events/${encodeURIComponent(gameId)}?after=${lastSequenceRef.current}`
         );
         const data = await response.json();
 
         if (data.events && data.events.length > 0) {
           setEvents(prev => [...prev, ...data.events]);
           const maxSeq = Math.max(...data.events.map((e: { sequence: number }) => e.sequence));
-          setLastSequence(maxSeq);
+          lastSequenceRef.current = maxSeq;
 
           // Update game state from latest events
           data.events.forEach((event: PokerEvent) => {
@@ -76,7 +76,7 @@ export default function PokerGamePage({ params }: { params: Promise<{ gameId: st
         clearInterval(pollingIntervalRef.current);
       }
     };
-  }, [gameId, lastSequence]);
+  }, [gameId]);
 
   const updateGameStateFromEvent = (event: PokerEvent) => {
     const { type, data } = event;
@@ -109,7 +109,22 @@ export default function PokerGamePage({ params }: { params: Promise<{ gameId: st
             pot: data.potAfter || prev.pot,
             players: prev.players.map(p =>
               p.agentId === data.agentId
-                ? { ...p, chipStack: data.chipStackAfter, currentBet: data.currentBetAfter }
+                ? { ...p, chipStack: data.chipStackAfter, currentBet: data.playerCurrentBet }
+                : p
+            ),
+          };
+        });
+        break;
+
+      case 'blind_posted':
+        setGameState(prev => {
+          if (!prev) return null;
+          return {
+            ...prev,
+            pot: data.potAfter || (prev.pot + data.amount),
+            players: prev.players.map(p =>
+              p.agentId === data.agentId
+                ? { ...p, chipStack: data.chipStackAfter, currentBet: data.playerCurrentBet }
                 : p
             ),
           };
@@ -548,9 +563,9 @@ export default function PokerGamePage({ params }: { params: Promise<{ gameId: st
             <div className="flex items-center justify-between">
               <div>
                 <h1 className="text-[#ffffff] text-xl font-semibold">
-                  Poker: {gameId}
+                  Texas Hold&apos;em
                 </h1>
-                <p className="text-[#888888] text-sm">AI vs AI Texas Hold&apos;em</p>
+                <p className="text-[#888888] text-sm">Coinbase vs. Crossmint</p>
               </div>
               <div className="text-right">
                 <div className="text-[#888888] text-xs uppercase tracking-wide">Pot</div>

@@ -86,7 +86,7 @@ export class IntelligentBiddingAgent {
     // Initialize LLM
     this.llm = new Anthropic({
       apiKey: config.anthropicApiKey,
-      model: 'claude-3-5-sonnet-20241022',
+      model: 'claude-sonnet-4-5-20250929',
     });
 
     console.log(`🧠 ${this.agentName} initialized with AI reasoning`);

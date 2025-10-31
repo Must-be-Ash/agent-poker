@@ -97,6 +97,7 @@ export async function startNewHand(gameId: string): Promise<void> {
       agentId: p.agentId,
       agentName: p.agentName,
       chipStack: p.chipStack,
+      currentBet: p.currentBet || 0,
       position: p.position,
       holeCards: p.cards as [Card, Card],
     })),

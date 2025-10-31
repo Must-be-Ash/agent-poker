@@ -41,6 +41,7 @@ export interface GameStateResponse {
     legalActions: string[];
     minimumRaise?: number;
     potOdds?: number;
+    blindRequired: 'small' | 'big' | null; // Indicates if player must post blind
   };
   error?: string;
 }
@@ -76,6 +77,8 @@ export interface ActionResponse {
 export function createPokerTools(context: PokerToolContext): FunctionTool<any, any>[] {
   return [
     createGetGameStateTool(context),
+    createPostSmallBlindTool(context),
+    createPostBigBlindTool(context),
     createCheckTool(context),
     createCallTool(context),
     createBetTool(context),
@@ -483,6 +486,166 @@ function createRaiseTool(context: PokerToolContext): FunctionTool<any, any> {
           },
         },
         required: ['gameId', 'amount', 'reasoning'],
+      },
+    }
+  );
+}
+
+/**
+ * Post Small Blind Tool
+ * Post the mandatory small blind (requires x402 payment)
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function createPostSmallBlindTool(context: PokerToolContext): FunctionTool<any, any> {
+  return FunctionTool.from(
+    async (input: { gameId: string }) => {
+      console.log(`\n🎲 [${context.agentName}] Posting small blind...`);
+
+      // Emit blind posting event
+      await context.emitEvent(input.gameId, 'poker_blind_initiated', {
+        blindType: 'small',
+      });
+
+      try {
+        // Use x402-enabled axios for payment
+        const response = await context.axiosWithPayment.post(
+          `${context.serverUrl}/api/poker/${input.gameId}/blind`,
+          {},
+          {
+            headers: {
+              'X-Agent-ID': context.agentName,
+              'X-Blind-Type': 'small',
+            },
+          }
+        );
+
+        const result = {
+          success: true,
+          data: response.data,
+        };
+
+        console.log(`✅ [${context.agentName}] Small blind posted - Amount: ${result.data?.amount} USDC`);
+        if (result.data?.settlement?.hash) {
+          console.log(`   TX: ${result.data.settlement.hash}`);
+        }
+
+        // Emit blind response event
+        await context.emitEvent(input.gameId, 'poker_blind_response', {
+          blindType: 'small',
+          result: result.data,
+        });
+
+        return JSON.stringify(result);
+      } catch (error: unknown) {
+        const errorMessage = axios.isAxiosError(error)
+          ? (error.response?.data?.error || error.message)
+          : (error instanceof Error ? error.message : 'Unknown error');
+        console.error(`❌ [${context.agentName}] Small blind failed:`, errorMessage);
+
+        // Include server error details if available
+        if (axios.isAxiosError(error) && error.response?.data) {
+          return JSON.stringify({
+            success: false,
+            error: errorMessage,
+            details: error.response.data.details,
+          });
+        }
+
+        return JSON.stringify({ success: false, error: errorMessage });
+      }
+    },
+    {
+      name: 'post_small_blind',
+      description: 'Post the MANDATORY small blind payment at the start of a hand. This requires an x402 USDC payment and must be done before you can take any other action. The small blind is an automatic forced bet that you MUST make when you are in small blind position. The server will automatically handle the blockchain payment via x402.',
+      parameters: {
+        type: 'object',
+        properties: {
+          gameId: {
+            type: 'string',
+            description: 'The poker game identifier',
+          },
+        },
+        required: ['gameId'],
+      },
+    }
+  );
+}
+
+/**
+ * Post Big Blind Tool
+ * Post the mandatory big blind (requires x402 payment)
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function createPostBigBlindTool(context: PokerToolContext): FunctionTool<any, any> {
+  return FunctionTool.from(
+    async (input: { gameId: string }) => {
+      console.log(`\n🎲 [${context.agentName}] Posting big blind...`);
+
+      // Emit blind posting event
+      await context.emitEvent(input.gameId, 'poker_blind_initiated', {
+        blindType: 'big',
+      });
+
+      try {
+        // Use x402-enabled axios for payment
+        const response = await context.axiosWithPayment.post(
+          `${context.serverUrl}/api/poker/${input.gameId}/blind`,
+          {},
+          {
+            headers: {
+              'X-Agent-ID': context.agentName,
+              'X-Blind-Type': 'big',
+            },
+          }
+        );
+
+        const result = {
+          success: true,
+          data: response.data,
+        };
+
+        console.log(`✅ [${context.agentName}] Big blind posted - Amount: ${result.data?.amount} USDC`);
+        if (result.data?.settlement?.hash) {
+          console.log(`   TX: ${result.data.settlement.hash}`);
+        }
+
+        // Emit blind response event
+        await context.emitEvent(input.gameId, 'poker_blind_response', {
+          blindType: 'big',
+          result: result.data,
+        });
+
+        return JSON.stringify(result);
+      } catch (error: unknown) {
+        const errorMessage = axios.isAxiosError(error)
+          ? (error.response?.data?.error || error.message)
+          : (error instanceof Error ? error.message : 'Unknown error');
+        console.error(`❌ [${context.agentName}] Big blind failed:`, errorMessage);
+
+        // Include server error details if available
+        if (axios.isAxiosError(error) && error.response?.data) {
+          return JSON.stringify({
+            success: false,
+            error: errorMessage,
+            details: error.response.data.details,
+          });
+        }
+
+        return JSON.stringify({ success: false, error: errorMessage });
+      }
+    },
+    {
+      name: 'post_big_blind',
+      description: 'Post the MANDATORY big blind payment at the start of a hand. This requires an x402 USDC payment and must be done before you can take any other action. The big blind is an automatic forced bet that you MUST make when you are in big blind position. The server will automatically handle the blockchain payment via x402.',
+      parameters: {
+        type: 'object',
+        properties: {
+          gameId: {
+            type: 'string',
+            description: 'The poker game identifier',
+          },
+        },
+        required: ['gameId'],
       },
     }
   );
