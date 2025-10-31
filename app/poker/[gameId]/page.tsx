@@ -283,6 +283,66 @@ export default function PokerGamePage({ params }: { params: Promise<{ gameId: st
               </div>
             )}
 
+            {/* Web search initiated */}
+            {type === 'poker_web_search_initiated' && (
+              <div
+                className={`rounded-2xl px-4 py-3 bg-[#2a2a2a] border border-[#444444] ${
+                  isAgentA ? 'rounded-tl-sm' : 'rounded-tr-sm'
+                }`}
+              >
+                <div className="text-[#888888] text-xs mb-2 flex items-center gap-2">
+                  <span>🔍</span>
+                  <span>Researching poker strategy...</span>
+                </div>
+                <div className="text-[#aaaaaa] text-xs font-mono mb-1">
+                  Query: &quot;{data.query}&quot;
+                </div>
+                {data.situation && (
+                  <div className="text-[#888888] text-xs italic mt-1">
+                    Situation: {data.situation}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Web search completed */}
+            {type === 'poker_web_search_completed' && data.insights && (
+              <div
+                className={`rounded-2xl px-4 py-3 mb-2 bg-[#2a2a2a] border border-[#444444] ${
+                  isAgentA ? 'rounded-tl-sm' : 'rounded-tr-sm'
+                }`}
+              >
+                <div className="text-[#aaaaaa] text-xs mb-2 flex items-center gap-2">
+                  <span>📚</span>
+                  <span>Found {data.totalResults} poker strateg{data.totalResults !== 1 ? 'ies' : 'y'}</span>
+                </div>
+                <div className="space-y-2 mt-2">
+                  {data.insights.slice(0, 3).map((insight: { source?: string; url?: string; strategy?: string }, i: number) => (
+                    <div key={i} className="bg-[#333333] rounded-lg p-2">
+                      <div className="text-[#cccccc] text-xs font-semibold leading-tight">
+                        {insight.source || 'No title'}
+                      </div>
+                      {insight.strategy && (
+                        <div className="text-[#888888] text-xs mt-1 leading-tight line-clamp-2">
+                          {insight.strategy}
+                        </div>
+                      )}
+                      {insight.url && (
+                        <a
+                          href={insight.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-[#666666] hover:text-[#888888] text-xs mt-1 inline-block"
+                        >
+                          Read more →
+                        </a>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
             {/* Poker action initiated */}
             {type === 'poker_action_initiated' && (
               <div

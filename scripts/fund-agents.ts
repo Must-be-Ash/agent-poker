@@ -1,4 +1,4 @@
-import { initializeWallet, sendRefund, getWalletBalance } from './lib/wallet';
+import { initializeWallet, sendRefund, getWalletBalance } from '../lib/wallet';
 import { privateKeyToAccount } from 'viem/accounts';
 import { createPublicClient, http } from 'viem';
 import { baseSepolia } from 'viem/chains';

@@ -37,7 +37,9 @@ export type PokerEventType =
   | 'agent_joined'
   | 'agent_error'
   | 'agent_balance_check'
-  | 'agent_waiting';
+  | 'agent_waiting'
+  | 'poker_web_search_initiated'
+  | 'poker_web_search_completed';
 
 // ============================================================================
 // INDIVIDUAL EVENT PAYLOADS
@@ -439,6 +441,8 @@ export function isValidPokerEventType(type: string): type is PokerEventType {
     'agent_error',
     'agent_balance_check',
     'agent_waiting',
+    'poker_web_search_initiated',
+    'poker_web_search_completed',
   ];
   return validTypes.includes(type as PokerEventType);
 }

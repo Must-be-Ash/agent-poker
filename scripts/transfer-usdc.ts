@@ -1,16 +1,27 @@
 #!/usr/bin/env tsx
 
-import { initializeWallet, sendRefund } from './lib/wallet';
+import { initializeWallet, sendRefund } from '../lib/wallet';
 import dotenv from 'dotenv';
 
 // Load environment variables
 dotenv.config({ path: '.env.local' });
+dotenv.config({ path: 'agents/.env' });
 
 async function transferUSDC() {
   console.log('💸 USDC Transfer Script\n');
 
-  const recipient1 = '0xAbF01df9428EaD5418473A7c91244826A3Af23b3';
-  const recipient2 = '0xeDeE7Ee27e99953ee3E99acE79a6fbc037E31C0D';
+  // Get recipient addresses from environment
+  const recipient1 = process.env.AGENT_A_PUBLIC_ADDRESS;
+  const recipient2 = process.env.AGENT_B_PUBLIC_ADDRESS;
+
+  if (!recipient1 || !recipient2) {
+    throw new Error('AGENT_A_PUBLIC_ADDRESS and AGENT_B_PUBLIC_ADDRESS must be set in agents/.env');
+  }
+
+  if (!recipient1.startsWith('0x') || !recipient2.startsWith('0x')) {
+    throw new Error('Agent addresses must start with 0x');
+  }
+
   const amount1 = 150; // USDC to first recipient
 
   try {
@@ -20,7 +31,7 @@ async function transferUSDC() {
     console.log(`✅ Server wallet: ${serverAccount.address}\n`);
 
     // Get current balance
-    const { getWalletBalance } = await import('./lib/wallet');
+    const { getWalletBalance } = await import('../lib/wallet');
     const balance = await getWalletBalance();
     const currentUSDC = parseFloat(balance.usdc);
     

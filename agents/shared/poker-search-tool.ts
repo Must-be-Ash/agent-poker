@@ -150,40 +150,45 @@ export function createPokerSearchTool(
     },
     {
       name: 'search_poker_strategy',
-      description: `Search the web for poker strategies, tactics, and expert advice using real-time web search. Use this tool FREELY whenever you want to learn or validate a decision.
+      description: `Your primary learning tool for discovering optimal poker strategies through real-time web search. Research how professionals handle specific situations and apply expert insights to your decisions.
 
-**When to use this tool:**
-- When uncertain about the best play in a specific situation
-- To learn how professional players handle similar scenarios
-- To understand advanced concepts (e.g., "GTO strategy", "range balancing", "blocker effects")
-- To discover optimal bet sizing for different situations
-- To study famous players' tactics and playing styles
-- When facing an unfamiliar board texture or opponent pattern
-- To validate your strategic intuition with expert opinions
-- To learn new concepts that weren't in your training
+**Core Purpose:** Research strategies for YOUR specific situation before major decisions.
 
-**Cost:** ~$0.01 USDC per search (automatically paid from your wallet on Base mainnet)
+**When to use:**
+- **Before major decisions**: Pre-flop with premium hands, facing significant bets, river decisions
+- **Unfamiliar situations**: Board textures or opponent patterns you haven't seen before
+- **Learning opportunities**: Discover how pros handle situations similar to yours
+- **Validation**: Check if your intuition matches expert recommendations
+- **Adaptation**: Learn strategies to exploit specific opponent types
+- **Advanced concepts**: Research GTO, range balancing, blocker effects, optimal sizing
 
-**Search frequency:** Use as often as needed - learning is valuable! The small cost is an investment in better decision-making.
+**How professionals use this:**
+Top poker players constantly research specific spots. They study how experts handle exact situations they face. You have this same capability - use it to make informed decisions based on expert insights.
 
-**Example queries:**
-- "when to bluff with middle pair on wet board"
+**Situation-specific search template:**
+- "How to play [your hand] against [opponent action] in [position]"
+- "Optimal strategy for [situation] with [stack size]"
+- "When to [action] with [hand type] on [board texture]"
+
+**Example searches:**
+- "how to play pocket aces against pre-flop raise in position"
+- "when to bluff with middle pair on wet coordinated board"
+- "optimal bet sizing with top pair facing check"
 - "how do pros play flush draws in position"
-- "optimal bet sizing with strong hands"
-- "Daniel Negreanu small ball strategy"
-- "GTO approach to river decisions"
-- "when to check-raise versus call with draws"
-- "exploiting loose aggressive players"
-- "reading opponent betting patterns"
+- "should I check-raise or call with draws out of position"
+- "exploiting tight players who fold too much"
+- "Daniel Negreanu small ball poker strategy"
+- "GTO approach to river value betting"
 
-**How to use:**
-1. Identify uncertainty or learning opportunity
-2. Formulate specific query about the situation
-3. Call this tool with your query
-4. Read and analyze the expert insights returned
-5. Apply learnings to your decision-making process
+**Search workflow:**
+1. Identify major decision or learning opportunity
+2. Formulate specific query matching your exact situation
+3. Call this tool with your query (and optionally describe your situation)
+4. Read expert insights returned in results
+5. Apply learnings to inform your decision
+6. Remember insights for similar future situations
 
-Remember: You're not just playing poker - you're LEARNING poker. Every search makes you better!`,
+**This is how winning players get better. Research. Learn. Adapt.**`,
       parameters: {
         type: 'object',
         properties: {

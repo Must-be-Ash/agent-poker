@@ -1,4 +1,4 @@
-import { initializeWallet, fundWalletFromFaucet, getWalletBalance } from './lib/wallet';
+import { initializeWallet, fundWalletFromFaucet, getWalletBalance } from '../lib/wallet';
 import dotenv from 'dotenv';
 
 dotenv.config({ path: '.env.local' });

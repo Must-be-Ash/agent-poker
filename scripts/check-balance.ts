@@ -1,6 +1,6 @@
 #!/usr/bin/env tsx
 
-import { getWalletBalance } from './lib/wallet';
+import { getWalletBalance } from '../lib/wallet';
 import dotenv from 'dotenv';
 
 // Load environment variables

@@ -7,13 +7,25 @@ dotenv.config({ path: '.env.local' });
 async function exportPrivateKey() {
   try {
     console.log('🔑 Exporting private key for server wallet...');
-    
+
+    // Get wallet address from environment
+    const address = process.env.SERVER_WALLET_ADDRESS;
+    if (!address) {
+      throw new Error('SERVER_WALLET_ADDRESS not found in .env.local');
+    }
+
+    if (!address.startsWith('0x')) {
+      throw new Error('SERVER_WALLET_ADDRESS must start with 0x');
+    }
+
+    console.log(`📍 Wallet address: ${address}`);
+
     // Initialize CDP client
     const cdp = new CdpClient();
-    
+
     // Export private key using the wallet address
     const privateKey = await cdp.evm.exportAccount({
-      address: '0x16CA9e69E97EF3E740f573E79b913183BF500C18'
+      address: address as `0x${string}`
     });
     
     console.log('✅ Private key exported successfully!');
