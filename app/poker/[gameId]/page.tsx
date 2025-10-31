@@ -616,7 +616,7 @@ export default function PokerGamePage({ params }: { params: Promise<{ gameId: st
       `}</style>
 
       {/* Sticky Header Container */}
-      <div className="sticky top-0 z-10 bg-[#1a1a1a]">
+      <div className="sticky top-0 z-50 bg-[#1a1a1a]">
         {/* Header */}
         <div className="bg-[#2a2a2a] border-b border-[#333333] px-6 py-4">
           <div className="max-w-7xl mx-auto">
